@@ -10,11 +10,11 @@ $landing = get_setting('landing', []);
 function page_header(string $title, ?array $user): void {
     $app = (require __DIR__ . '/config.php')['app'];
     echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"></head><body>";
-    echo "<header class=\"site-header\"><div class=\"container header-inner\"><a class=\"logo\" href=\"/\">Kapouch</a>";
+    echo "<header class=\"site-header\"><div class=\"container header-inner\"><a class=\"logo\" href=\"/\"><span class=\"logo-mark\">K</span>Kapouch</a>";
     echo "<nav class=\"nav\">";
     if ($user) {
-        echo "<a href=\"/index.php?page=dashboard\">Дашборд</a>";
-        echo "<a href=\"/index.php?page=cafes\">Кофейни</a>";
+        echo "<a href=\"/index.php?page=dashboard\">Рабочий стол</a>";
+        echo "<a href=\"/index.php?page=cafes\">Мои кофейни</a>";
         echo "<a href=\"/index.php?page=plans\">Тарифы</a>";
         if ($user['role'] === 'admin') {
             echo "<a href=\"/index.php?page=admin\">Админка</a>";
@@ -23,7 +23,7 @@ function page_header(string $title, ?array $user): void {
     } else {
         echo "<a href=\"/index.php?page=plans\">Тарифы</a>";
         echo "<a href=\"/index.php?page=login\" class=\"btn btn-ghost\">Войти</a>";
-        echo "<a href=\"/index.php?page=register\" class=\"btn btn-primary\">Попробовать</a>";
+        echo "<a href=\"/index.php?page=register\" class=\"btn btn-primary\">Запустить учёт</a>";
     }
     echo "</nav></div></header>";
     if (!empty($_SESSION['flash'])) {
@@ -35,8 +35,27 @@ function page_header(string $title, ?array $user): void {
 
 function page_footer(): void {
     $year = date('Y');
-    echo "<footer class=\"site-footer\"><div class=\"container footer-inner\"><div>© {$year} Kapouch. Все права защищены.</div><div>Поддержка: support@your-domain.ru</div></div></footer>";
+    echo "<footer class=\"site-footer\"><div class=\"container footer-inner\"><div><strong>Kapouch</strong> — профессиональный учёт для кофеен. © {$year}</div><div>Поддержка: support@your-domain.ru</div></div></footer>";
     echo "<script src=\"/assets/app.js\"></script></body></html>";
+}
+
+function app_nav(string $current, int $cafe_id = 0): void {
+    $links = [
+        'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
+        'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
+        'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
+        'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
+        'recipes' => ['Рецепты', $cafe_id ? "/index.php?page=recipes&cafe_id={$cafe_id}" : '/index.php?page=recipes'],
+        'ingredients' => ['Ингредиенты', $cafe_id ? "/index.php?page=ingredients&cafe_id={$cafe_id}" : '/index.php?page=ingredients'],
+        'payments' => ['Платежи', '/index.php?page=payments'],
+        'cafes' => ['Кофейни', '/index.php?page=cafes'],
+    ];
+    echo "<div class=\"app-nav\"><div class=\"container app-nav-inner\">";
+    foreach ($links as $key => $data) {
+        $active = $current === $key ? 'active' : '';
+        echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
+    }
+    echo "</div></div>";
 }
 
 function guard_subscription(?array $subscription): void {
@@ -62,18 +81,18 @@ if ($page === 'home') {
     $advantages = $landing['advantages'] ?? [];
     $testimonials = $landing['testimonials'] ?? [];
     echo "<main>";
-    echo "<section class=\"hero\"><div class=\"container hero-inner\"><div><h1>" . e($landing['hero_title'] ?? 'Финансовая система для владельцев кофеен') . "</h1><p>" . e($landing['hero_subtitle'] ?? 'Полный контроль финансов, себестоимости и прибыли.') . "</p><div class=\"hero-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=register\">" . e($landing['cta_primary'] ?? 'Попробовать') . "</a><a class=\"btn btn-ghost\" href=\"/index.php?page=plans\">" . e($landing['cta_secondary'] ?? 'Купить доступ') . "</a></div><div class=\"hero-note\">Без автопродления. Доступ продлевается вручную.</div></div><div class=\"hero-card\"><h3>Что вы получите</h3><ul><li>Unit-экономику напитков</li><li>P&L и точку безубыточности</li><li>Аналитику по закупкам и расходам</li><li>Готовую оплату и фискализацию</li></ul></div></div></section>";
-    echo "<section class=\"section\"><div class=\"container\"><h2>Преимущества</h2><div class=\"grid grid-4\">";
+    echo "<section class=\"hero\"><div class=\"container hero-inner\"><div><div class=\"badge\">SaaS для владельцев кофеен</div><h1>" . e($landing['hero_title'] ?? 'Финансовая система для владельцев кофеен') . "</h1><p>" . e($landing['hero_subtitle'] ?? 'Полный контроль маржи, себестоимости и прибыли. Решения на цифрах, а не на интуиции.') . "</p><div class=\"hero-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=register\">" . e($landing['cta_primary'] ?? 'Попробовать 7 дней') . "</a><a class=\"btn btn-ghost\" href=\"/index.php?page=plans\">" . e($landing['cta_secondary'] ?? 'Купить доступ') . "</a></div><div class=\"hero-note\">Без автопродления · Оплата за период · Фискализация по 54‑ФЗ</div><div class=\"hero-stats\"><div><span>+12%</span> рост маржи за 30 дней</div><div><span>4.9/5</span> средняя оценка клиентов</div><div><span>7 минут</span> на ежедневный контроль</div></div></div><div class=\"hero-card\"><h3>Что внутри Kapouch</h3><ul><li>Средневзвешенная себестоимость по рецептам</li><li>P&L, unit-экономика, точка безубыточности</li><li>Контроль закупок, расходов и продаж</li><li>Тинькофф СБП + онлайн-чеки</li></ul><div class=\"hero-card-footer\"><strong>Запуск за 1 день</strong><span>без разработки и серверов</span></div></div></div></section>";
+    echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Почему владельцы кофеен выбирают Kapouch</h2><p class=\"muted\">Сервис учитывает специфику кофейного бизнеса и помогает видеть прибыль на уровне напитков.</p></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Начать сейчас</a></div><div class=\"grid grid-4\">";
     foreach ($advantages as $adv) {
         echo "<div class=\"card\"><h3>" . e($adv['title']) . "</h3><p>" . e($adv['text']) . "</p></div>";
     }
     echo "</div></div></section>";
-    echo "<section class=\"section alt\"><div class=\"container\"><h2>Отзывы владельцев кофеен</h2><div class=\"grid grid-3\">";
+    echo "<section class=\"section alt\"><div class=\"container\"><div class=\"section-head\"><h2>Отзывы владельцев кофеен</h2><span class=\"muted\">Реальные результаты, подтверждённые цифрами</span></div><div class=\"grid grid-3\">";
     foreach ($testimonials as $item) {
         echo "<div class=\"card testimonial\"><p>“" . e($item['text']) . "”</p><div class=\"muted\">" . e($item['name']) . "</div></div>";
     }
     echo "</div></div></section>";
-    echo "<section class=\"section\"><div class=\"container\"><h2>Тарифы</h2><div class=\"grid grid-3 pricing\">";
+    echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Тарифы без автопродления</h2><p class=\"muted\">Вы оплачиваете только нужный период. Доступ активируется после оплаты и чека.</p></div><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Запустить сейчас</a></div><div class=\"grid grid-3 pricing\">";
     $plans = db()->query('SELECT * FROM plans WHERE active = 1 ORDER BY price')->fetchAll();
     foreach ($plans as $plan) {
         $features = json_decode($plan['features_json'], true);
@@ -178,7 +197,8 @@ if ($page === 'dashboard') {
         $metrics['expenses'] = $exp['expenses'];
         $metrics['net_profit'] = $metrics['gross_profit'] - $metrics['expenses'];
     }
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Дашборд</h2><div class=\"muted\">Тариф: " . e($subscription['plan_name']) . " · Действует до " . e(date('d.m.Y', strtotime($subscription['ends_at']))) . "</div></div>";
+    app_nav('dashboard', (int)$selected_cafe);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Рабочий стол</h2><div class=\"muted\">Тариф: " . e($subscription['plan_name']) . " · Действует до " . e(date('d.m.Y', strtotime($subscription['ends_at']))) . "</div></div><div class=\"page-actions\"><a class=\"btn btn-ghost\" href=\"/index.php?page=payments\">Платежи</a><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$selected_cafe) . "\">Добавить продажи</a></div></div>";
     if (empty($cafes)) {
         echo "<div class=\"empty-state\"><h3>Добавьте первую кофейню</h3><p>Это нужно, чтобы считать рецепты, продажи и аналитику.</p><a class=\"btn btn-primary\" href=\"/index.php?page=cafes\">Создать кофейню</a></div>";
         echo "</main>";
@@ -202,7 +222,7 @@ if ($page === 'dashboard') {
     $sales_count->execute([$selected_cafe]);
     $sales_total = $sales_count->fetch()['total'];
     if ($ingredients_total == 0 || $recipes_total == 0 || $sales_total == 0) {
-        echo "<div class=\"card onboarding\"><h3>Онбординг: 3 шага до аналитики</h3><ol><li>Добавьте ингредиенты и закупки.</li><li>Создайте рецепты напитков.</li><li>Загрузите продажи (CSV) или внесите вручную.</li></ol><div class=\"onboarding-actions\"><a class=\"btn btn-ghost\" href=\"/index.php?page=ingredients&cafe_id=" . e((string)$selected_cafe) . "\">Ингредиенты</a><a class=\"btn btn-ghost\" href=\"/index.php?page=recipes&cafe_id=" . e((string)$selected_cafe) . "\">Рецепты</a><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$selected_cafe) . "\">Продажи</a></div></div>";
+        echo "<div class=\"card onboarding\"><div class=\"onboarding-head\"><h3>Запуск учёта: 3 шага до аналитики</h3><span class=\"muted\">Сервис покажет прибыль сразу после заполнения ключевых данных.</span></div><ol><li>Добавьте ингредиенты и закупки.</li><li>Создайте рецепты напитков.</li><li>Загрузите продажи (CSV) или внесите вручную.</li></ol><div class=\"onboarding-actions\"><a class=\"btn btn-ghost\" href=\"/index.php?page=ingredients&cafe_id=" . e((string)$selected_cafe) . "\">Ингредиенты</a><a class=\"btn btn-ghost\" href=\"/index.php?page=recipes&cafe_id=" . e((string)$selected_cafe) . "\">Рецепты</a><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$selected_cafe) . "\">Продажи</a></div></div>";
     }
 
     echo "<div class=\"grid grid-3 metrics\">";
@@ -285,9 +305,10 @@ if ($page === 'cafes') {
     $stmt->execute([$user['id']]);
     $cafes = $stmt->fetchAll();
     $limit = user_cafe_limit($subscription);
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Кофейни</h2><div class=\"muted\">Доступно: " . count($cafes) . " / " . $limit . "</div></div>";
+    app_nav('cafes');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Кофейни</h2><div class=\"muted\">Доступно: " . count($cafes) . " / " . $limit . "</div></div><a class=\"btn btn-primary\" href=\"#create-cafe\">Добавить кофейню</a></div>";
     if (count($cafes) < $limit) {
-        echo "<div class=\"card\"><form method=\"post\" action=\"/api.php?action=create_cafe\" class=\"inline-form\"><label>Название</label><input name=\"name\" required><label>Город</label><input name=\"city\" required><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
+        echo "<div class=\"card\" id=\"create-cafe\"><form method=\"post\" action=\"/api.php?action=create_cafe\" class=\"inline-form\"><label>Название</label><input name=\"name\" required><label>Город</label><input name=\"city\" required><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
     } else {
         echo "<div class=\"alert warning\">Достигнут лимит кофеен для вашего тарифа. Обновите тариф, чтобы добавить больше.</div>";
     }
@@ -319,8 +340,9 @@ if ($page === 'ingredients') {
     $ingredients = db()->prepare('SELECT * FROM ingredients WHERE cafe_id = ?');
     $ingredients->execute([$cafe_id]);
     $ingredients = $ingredients->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Ингредиенты — " . e($cafe['name']) . "</h2><div class=\"muted\">Средневзвешенная себестоимость</div></div>";
-    echo "<div class=\"card\"><form method=\"post\" action=\"/api.php?action=add_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Название</label><input name=\"name\" required><label>Ед.изм.</label><input name=\"unit\" placeholder=\"г, мл, шт\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" required><label>Начальный остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"0\"><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
+    app_nav('ingredients', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Ингредиенты — " . e($cafe['name']) . "</h2><div class=\"muted\">Средневзвешенная себестоимость</div></div><a class=\"btn btn-primary\" href=\"#add-ingredient\">Добавить ингредиент</a></div>";
+    echo "<div class=\"card\" id=\"add-ingredient\"><form method=\"post\" action=\"/api.php?action=add_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Название</label><input name=\"name\" required><label>Ед.изм.</label><input name=\"unit\" placeholder=\"г, мл, шт\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" required><label>Начальный остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"0\"><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
 
     echo "<div class=\"grid grid-2\">";
     foreach ($ingredients as $item) {
@@ -366,8 +388,9 @@ if ($page === 'recipes') {
     $recipes = db()->prepare('SELECT * FROM recipes WHERE cafe_id = ?');
     $recipes->execute([$cafe_id]);
     $recipes = $recipes->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Рецепты напитков — " . e($cafe['name']) . "</h2><a class=\"btn btn-ghost\" href=\"/index.php?page=ingredients&cafe_id=" . e((string)$cafe_id) . "\">Ингредиенты</a></div>";
-    echo "<div class=\"card\"><form method=\"post\" action=\"/api.php?action=add_recipe\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Название напитка</label><input name=\"name\" required></div><div><label>Цена продажи</label><input name=\"price\" type=\"number\" step=\"0.01\" required></div><div><label>Ингредиент</label><select name=\"ingredient_id\" required>";
+    app_nav('recipes', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Рецепты напитков — " . e($cafe['name']) . "</h2><div class=\"muted\">Себестоимость считается автоматически по ингредиентам.</div></div><div class=\"page-actions\"><a class=\"btn btn-ghost\" href=\"/index.php?page=ingredients&cafe_id=" . e((string)$cafe_id) . "\">Ингредиенты</a><a class=\"btn btn-primary\" href=\"#add-recipe\">Добавить напиток</a></div></div>";
+    echo "<div class=\"card\" id=\"add-recipe\"><form method=\"post\" action=\"/api.php?action=add_recipe\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Название напитка</label><input name=\"name\" required></div><div><label>Цена продажи</label><input name=\"price\" type=\"number\" step=\"0.01\" required></div><div><label>Ингредиент</label><select name=\"ingredient_id\" required>";
     foreach ($ingredients as $ing) {
         echo "<option value=\"" . e((string)$ing['id']) . "\">" . e($ing['name']) . "</option>";
     }
@@ -409,8 +432,9 @@ if ($page === 'sales') {
     $sales = db()->prepare('SELECT s.*, r.name FROM sales s JOIN recipes r ON r.id = s.recipe_id WHERE s.cafe_id = ? ORDER BY s.sold_at DESC LIMIT 50');
     $sales->execute([$cafe_id]);
     $sales = $sales->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Продажи — " . e($cafe['name']) . "</h2><div class=\"muted\">Ручной ввод и CSV импорт</div></div>";
-    echo "<div class=\"card\"><form method=\"post\" action=\"/api.php?action=add_sale\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Напиток</label><select name=\"recipe_id\" required>";
+    app_nav('sales', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Продажи — " . e($cafe['name']) . "</h2><div class=\"muted\">Ручной ввод и CSV импорт</div></div><a class=\"btn btn-primary\" href=\"#add-sale\">Добавить продажу</a></div>";
+    echo "<div class=\"card\" id=\"add-sale\"><form method=\"post\" action=\"/api.php?action=add_sale\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Напиток</label><select name=\"recipe_id\" required>";
     foreach ($recipes as $recipe) {
         echo "<option value=\"" . e((string)$recipe['id']) . "\">" . e($recipe['name']) . "</option>";
     }
@@ -452,8 +476,9 @@ if ($page === 'expenses') {
     $expenses = db()->prepare('SELECT * FROM expenses WHERE cafe_id = ? ORDER BY expense_date DESC LIMIT 50');
     $expenses->execute([$cafe_id]);
     $expenses = $expenses->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Расходы — " . e($cafe['name']) . "</h2><div class=\"muted\">OPEX, аренда, зарплаты, маркетинг</div></div>";
-    echo "<div class=\"card\"><form method=\"post\" action=\"/api.php?action=add_expense\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Категория</label><input name=\"category\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\" required></div><div><label>Дата</label><input name=\"expense_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Добавить расход</button></div></form></div>";
+    app_nav('expenses', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Расходы — " . e($cafe['name']) . "</h2><div class=\"muted\">OPEX, аренда, зарплаты, маркетинг</div></div><a class=\"btn btn-primary\" href=\"#add-expense\">Добавить расход</a></div>";
+    echo "<div class=\"card\" id=\"add-expense\"><form method=\"post\" action=\"/api.php?action=add_expense\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Категория</label><input name=\"category\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\" required></div><div><label>Дата</label><input name=\"expense_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Добавить расход</button></div></form></div>";
     echo "<div class=\"card\"><h3>CSV импорт расходов</h3><form method=\"post\" action=\"/api.php?action=import_expenses\" enctype=\"multipart/form-data\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить CSV</button></form><div class=\"muted\">Формат: категория;сумма;дата (YYYY-MM-DD)</div></div>";
 
     echo "<div class=\"card\"><h3>Последние расходы</h3>";
@@ -487,6 +512,7 @@ if ($page === 'analytics') {
         page_footer();
         exit;
     }
+    app_nav('analytics', $cafe_id);
     $period = $_GET['period'] ?? 'month';
     $days = $period === 'day' ? 1 : ($period === 'week' ? 7 : 30);
     $start = (new DateTime())->modify("-{$days} days")->format('Y-m-d');
@@ -583,7 +609,8 @@ if ($page === 'payments') {
     $payments = db()->prepare('SELECT p.*, pl.name AS plan_name FROM payments p JOIN plans pl ON pl.id = p.plan_id WHERE p.user_id = ? ORDER BY p.created_at DESC LIMIT 20');
     $payments->execute([$user['id']]);
     $payments = $payments->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><h2>Платежи и чеки</h2></div>";
+    app_nav('payments');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Платежи и чеки</h2><div class=\"muted\">История оплат и статусы чеков.</div></div><a class=\"btn btn-ghost\" href=\"/index.php?page=plans\">Продлить доступ</a></div>";
     if ($subscription) {
         echo "<div class=\"alert success\">Активен тариф: " . e($subscription['plan_name']) . ", до " . e(date('d.m.Y', strtotime($subscription['ends_at']))) . "</div>";
     } else {
