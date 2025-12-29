@@ -462,9 +462,20 @@ if ($action === 'tinkoff_callback') {
         $plan_stmt = db()->prepare('SELECT * FROM plans WHERE id = ?');
         $plan_stmt->execute([$payment['plan_id']]);
         $plan = $plan_stmt->fetch();
-        $starts = new DateTime();
-        $ends = (new DateTime())->modify('+' . (int)$plan['duration_days'] . ' days');
-        db()->prepare('INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status) VALUES (?, ?, ?, ?, "active")')->execute([$payment['user_id'], $payment['plan_id'], $starts->format('Y-m-d H:i:s'), $ends->format('Y-m-d H:i:s')]);
+        $active_stmt = db()->prepare('SELECT * FROM subscriptions WHERE user_id = ? AND status = "active" ORDER BY ends_at DESC LIMIT 1');
+        $active_stmt->execute([$payment['user_id']]);
+        $active_sub = $active_stmt->fetch();
+        $now = new DateTime();
+        if ($active_sub && (int)$active_sub['plan_id'] === (int)$payment['plan_id']) {
+            $current_end = new DateTime($active_sub['ends_at']);
+            $base = $current_end > $now ? $current_end : $now;
+            $new_end = (clone $base)->modify('+' . (int)$plan['duration_days'] . ' days');
+            db()->prepare('UPDATE subscriptions SET ends_at = ?, status = "active" WHERE id = ?')->execute([$new_end->format('Y-m-d H:i:s'), $active_sub['id']]);
+        } else {
+            db()->prepare('UPDATE subscriptions SET status = "canceled" WHERE user_id = ? AND status = "active"')->execute([$payment['user_id']]);
+            $ends = (clone $now)->modify('+' . (int)$plan['duration_days'] . ' days');
+            db()->prepare('INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status) VALUES (?, ?, ?, ?, "active")')->execute([$payment['user_id'], $payment['plan_id'], $now->format('Y-m-d H:i:s'), $ends->format('Y-m-d H:i:s')]);
+        }
         db()->prepare('INSERT INTO receipts (payment_id, receipt_no, status, payload) VALUES (?, ?, ?, ?)')->execute([$payment_db_id, $data['ReceiptId'] ?? null, 'success', json_encode($data, JSON_UNESCAPED_UNICODE)]);
         echo 'OK';
         exit;
