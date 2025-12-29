@@ -150,9 +150,62 @@ CREATE TABLE kpi_targets (
     cafe_id INT NOT NULL,
     target_margin DECIMAL(6,2) NOT NULL DEFAULT 0,
     target_profit DECIMAL(12,2) NOT NULL DEFAULT 0,
+    target_revenue DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE cash_shifts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    shift_date DATE NOT NULL,
+    opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+    closing_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+    cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
+    difference DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE plan_fact_targets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    target_revenue DECIMAL(12,2) NOT NULL DEFAULT 0,
+    target_profit DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE staff (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    name VARCHAR(190) NOT NULL,
+    role VARCHAR(120) NOT NULL,
+    hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE staff_shifts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    staff_id INT NOT NULL,
+    shift_date DATE NOT NULL,
+    hours DECIMAL(6,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
+);
+
+CREATE TABLE payment_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    payment_id INT NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    payload JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_payment_event (payment_id, event_type),
+    FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
 );
 
 CREATE TABLE settings (

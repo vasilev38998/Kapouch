@@ -43,10 +43,16 @@ function app_nav(string $current, int $cafe_id = 0): void {
     $links = [
         'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
         'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
+        'plan_fact' => ['План-факт', $cafe_id ? "/index.php?page=plan_fact&cafe_id={$cafe_id}" : '/index.php?page=plan_fact'],
+        'abc_xyz' => ['ABC/XYZ', $cafe_id ? "/index.php?page=abc_xyz&cafe_id={$cafe_id}" : '/index.php?page=abc_xyz'],
+        'cash_shifts' => ['Смены', $cafe_id ? "/index.php?page=cash_shifts&cafe_id={$cafe_id}" : '/index.php?page=cash_shifts'],
         'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
         'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
         'recipes' => ['Рецепты', $cafe_id ? "/index.php?page=recipes&cafe_id={$cafe_id}" : '/index.php?page=recipes'],
         'ingredients' => ['Ингредиенты', $cafe_id ? "/index.php?page=ingredients&cafe_id={$cafe_id}" : '/index.php?page=ingredients'],
+        'staff' => ['Персонал', $cafe_id ? "/index.php?page=staff&cafe_id={$cafe_id}" : '/index.php?page=staff'],
+        'integrations' => ['Интеграции', '/index.php?page=integrations'],
+        'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
         'payments' => ['Платежи', '/index.php?page=payments'],
         'cafes' => ['Кофейни', '/index.php?page=cafes'],
     ];
@@ -238,7 +244,8 @@ if ($page === 'dashboard') {
         $kpi = $kpi_stmt->fetch();
         $target_margin = $kpi['target_margin'] ?? 0;
         $target_profit = $kpi['target_profit'] ?? 0;
-        echo "<div class=\"card\"><h3>KPI и цели</h3><form method=\"post\" action=\"/api.php?action=update_kpi\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$selected_cafe) . "\"><label>Целевая маржа (%)</label><input name=\"target_margin\" type=\"number\" step=\"0.1\" value=\"" . e((string)$target_margin) . "\"><label>Целевая прибыль (₽)</label><input name=\"target_profit\" type=\"number\" step=\"0.01\" value=\"" . e((string)$target_profit) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Сохранить</button></form><div class=\"muted\">Текущая маржа: " . number_format($metrics['gross_margin'], 1, ',', ' ') . "% · Чистая прибыль: " . format_money($metrics['net_profit']) . " ₽</div></div>";
+        $target_revenue = $kpi['target_revenue'] ?? 0;
+        echo "<div class=\"card\"><h3>KPI и цели</h3><form method=\"post\" action=\"/api.php?action=update_kpi\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$selected_cafe) . "\"><label>Целевая маржа (%)</label><input name=\"target_margin\" type=\"number\" step=\"0.1\" value=\"" . e((string)$target_margin) . "\"><label>Целевая прибыль (₽)</label><input name=\"target_profit\" type=\"number\" step=\"0.01\" value=\"" . e((string)$target_profit) . "\"><label>Целевая выручка (₽)</label><input name=\"target_revenue\" type=\"number\" step=\"0.01\" value=\"" . e((string)$target_revenue) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Сохранить</button></form><div class=\"muted\">Текущая маржа: " . number_format($metrics['gross_margin'], 1, ',', ' ') . "% · Чистая прибыль: " . format_money($metrics['net_profit']) . " ₽</div></div>";
     }
 
     if (feature_enabled($subscription, 'alerts')) {
@@ -493,6 +500,189 @@ if ($page === 'expenses') {
         echo "<div class=\"empty-state\">Пока нет расходов. Добавьте вручную или импортируйте CSV.</div>";
     }
     echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'cash_shifts') {
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $shifts_stmt = db()->prepare('SELECT * FROM cash_shifts WHERE cafe_id = ? ORDER BY shift_date DESC LIMIT 30');
+    $shifts_stmt->execute([$cafe_id]);
+    $shifts = $shifts_stmt->fetchAll();
+    app_nav('cash_shifts', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Контроль кассы — " . e($cafe['name']) . "</h2><div class=\"muted\">Смены, расхождения и дисциплина наличных</div></div><a class=\"btn btn-primary\" href=\"#add-shift\">Добавить смену</a></div>";
+    echo "<div class=\"card\" id=\"add-shift\"><form method=\"post\" action=\"/api.php?action=add_cash_shift\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Дата</label><input type=\"date\" name=\"shift_date\" required></div><div><label>Открытие кассы</label><input type=\"number\" step=\"0.01\" name=\"opening_cash\" required></div><div><label>Закрытие кассы</label><input type=\"number\" step=\"0.01\" name=\"closing_cash\" required></div><div><label>Наличные продажи</label><input type=\"number\" step=\"0.01\" name=\"cash_sales\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить смену</button></div></form><div class=\"muted\">Шаблон CSV: <a href=\"/api.php?action=download_template&type=cash_shifts\">скачать</a></div></div>";
+    echo "<div class=\"card\"><h3>Последние смены</h3>";
+    if ($shifts) {
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Открытие</th><th>Закрытие</th><th>Наличные продажи</th><th>Расхождение</th></tr></thead><tbody>";
+        foreach ($shifts as $shift) {
+            echo "<tr><td>" . e(date('d.m.Y', strtotime($shift['shift_date']))) . "</td><td>" . format_money($shift['opening_cash']) . " ₽</td><td>" . format_money($shift['closing_cash']) . " ₽</td><td>" . format_money($shift['cash_sales']) . " ₽</td><td>" . format_money($shift['difference']) . " ₽</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Пока нет смен. Добавьте первую.</div>";
+    }
+    echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'plan_fact') {
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $targets_stmt = db()->prepare('SELECT * FROM plan_fact_targets WHERE cafe_id = ? ORDER BY period_start DESC');
+    $targets_stmt->execute([$cafe_id]);
+    $targets = $targets_stmt->fetchAll();
+    app_nav('plan_fact', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>План-факт — " . e($cafe['name']) . "</h2><div class=\"muted\">Контроль исполнения целей по выручке и прибыли</div></div><a class=\"btn btn-primary\" href=\"#add-plan\">Добавить план</a></div>";
+    echo "<div class=\"card\" id=\"add-plan\"><form method=\"post\" action=\"/api.php?action=add_plan_fact\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Период с</label><input type=\"date\" name=\"period_start\" required></div><div><label>Период до</label><input type=\"date\" name=\"period_end\" required></div><div><label>План выручки</label><input type=\"number\" step=\"0.01\" name=\"target_revenue\" required></div><div><label>План прибыли</label><input type=\"number\" step=\"0.01\" name=\"target_profit\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить план</button></div></form></div>";
+    echo "<div class=\"card\"><h3>План-факт таблица</h3>";
+    if ($targets) {
+        echo "<table class=\"table\"><thead><tr><th>Период</th><th>План выручки</th><th>Факт выручки</th><th>План прибыли</th><th>Факт прибыли</th></tr></thead><tbody>";
+        foreach ($targets as $target) {
+            $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id = ? AND sold_at BETWEEN ? AND ?');
+            $stmt->execute([$cafe_id, $target['period_start'], $target['period_end']]);
+            $sales = $stmt->fetch();
+            $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id = ? AND expense_date BETWEEN ? AND ?');
+            $stmt->execute([$cafe_id, $target['period_start'], $target['period_end']]);
+            $exp = $stmt->fetch();
+            $gross_profit = $sales['revenue'] - $sales['cogs'];
+            $net_profit = $gross_profit - $exp['expenses'];
+            echo "<tr><td>" . e(date('d.m.Y', strtotime($target['period_start']))) . " – " . e(date('d.m.Y', strtotime($target['period_end']))) . "</td><td>" . format_money($target['target_revenue']) . " ₽</td><td>" . format_money($sales['revenue']) . " ₽</td><td>" . format_money($target['target_profit']) . " ₽</td><td>" . format_money($net_profit) . " ₽</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Добавьте план, чтобы сравнивать с фактом.</div>";
+    }
+    echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'abc_xyz') {
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $stmt = db()->prepare('SELECT r.id, r.name, COALESCE(SUM(s.price_total),0) AS revenue, COALESCE(SUM(s.qty),0) AS qty FROM recipes r LEFT JOIN sales s ON s.recipe_id = r.id WHERE r.cafe_id = ? GROUP BY r.id');
+    $stmt->execute([$cafe_id]);
+    $items = $stmt->fetchAll();
+    usort($items, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+    $total_revenue = array_sum(array_column($items, 'revenue'));
+    $days_stmt = db()->prepare('SELECT recipe_id, sold_at, SUM(qty) AS qty FROM sales WHERE cafe_id = ? AND sold_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY recipe_id, sold_at');
+    $days_stmt->execute([$cafe_id]);
+    $day_map = [];
+    foreach ($days_stmt->fetchAll() as $row) {
+        $day_map[$row['recipe_id']][] = (float)$row['qty'];
+    }
+    app_nav('abc_xyz', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>ABC/XYZ анализ — " . e($cafe['name']) . "</h2><div class=\"muted\">Выделите ключевые напитки и прогнозируемость спроса</div></div></div>";
+    echo "<div class=\"card\"><table class=\"table\"><thead><tr><th>Напиток</th><th>Выручка</th><th>Доля</th><th>ABC</th><th>XYZ</th></tr></thead><tbody>";
+    $cumulative = 0;
+    foreach ($items as $item) {
+        $share = $total_revenue > 0 ? ($item['revenue'] / $total_revenue) * 100 : 0;
+        $cumulative += $share;
+        $abc = $cumulative <= 80 ? 'A' : ($cumulative <= 95 ? 'B' : 'C');
+        $series = $day_map[$item['id']] ?? [];
+        $mean = $series ? array_sum($series) / count($series) : 0;
+        $variance = 0;
+        if ($mean > 0 && $series) {
+            foreach ($series as $value) {
+                $variance += pow($value - $mean, 2);
+            }
+            $variance /= count($series);
+        }
+        $cv = $mean > 0 ? sqrt($variance) / $mean : 0;
+        $xyz = $cv <= 0.5 ? 'X' : ($cv <= 1.0 ? 'Y' : 'Z');
+        echo "<tr><td>" . e($item['name']) . "</td><td>" . format_money($item['revenue']) . " ₽</td><td>" . number_format($share, 1, ',', ' ') . "%</td><td>" . $abc . "</td><td>" . $xyz . "</td></tr>";
+    }
+    echo "</tbody></table></div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'staff') {
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $staff_stmt = db()->prepare('SELECT * FROM staff WHERE cafe_id = ?');
+    $staff_stmt->execute([$cafe_id]);
+    $staff = $staff_stmt->fetchAll();
+    $payroll_stmt = db()->prepare('SELECT COALESCE(SUM(ss.hours * s.hourly_rate),0) AS payroll FROM staff_shifts ss JOIN staff s ON s.id = ss.staff_id WHERE s.cafe_id = ?');
+    $payroll_stmt->execute([$cafe_id]);
+    $payroll = $payroll_stmt->fetch()['payroll'];
+    app_nav('staff', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Персонал — " . e($cafe['name']) . "</h2><div class=\"muted\">Фонд оплаты труда и часы сотрудников</div></div><a class=\"btn btn-primary\" href=\"#add-staff\">Добавить сотрудника</a></div>";
+    echo "<div class=\"card\" id=\"add-staff\"><form method=\"post\" action=\"/api.php?action=add_staff\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Имя</label><input name=\"name\" required></div><div><label>Должность</label><input name=\"role\" required></div><div><label>Ставка (₽/час)</label><input name=\"hourly_rate\" type=\"number\" step=\"0.01\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form></div>";
+    echo "<div class=\"card\"><h3>Сотрудники</h3>";
+    if ($staff) {
+        echo "<table class=\"table\"><thead><tr><th>Имя</th><th>Должность</th><th>Ставка</th><th>Смена</th></tr></thead><tbody>";
+        foreach ($staff as $person) {
+            echo "<tr><td>" . e($person['name']) . "</td><td>" . e($person['role']) . "</td><td>" . format_money($person['hourly_rate']) . " ₽</td><td><form method=\"post\" action=\"/api.php?action=add_staff_shift\" class=\"inline-form\"><input type=\"hidden\" name=\"staff_id\" value=\"" . e((string)$person['id']) . "\"><input type=\"date\" name=\"shift_date\" required><input type=\"number\" step=\"0.1\" name=\"hours\" placeholder=\"Часы\" required><button class=\"btn btn-ghost\" type=\"submit\">Добавить</button></form></td></tr>";
+        }
+        echo "</tbody></table>";
+        echo "<div class=\"muted\">ФОТ за период: " . format_money($payroll) . " ₽</div>";
+    } else {
+        echo "<div class=\"empty-state\">Добавьте сотрудников, чтобы считать фонд оплаты труда.</div>";
+    }
+    echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'integrations') {
+    app_nav('integrations');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Интеграции и импорт</h2><div class=\"muted\">Подготовленные шаблоны для быстрого запуска</div></div></div>";
+    echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Продажи</h3><p class=\"muted\">Используйте шаблон, чтобы загрузить продажи из кассы.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Скачать шаблон</a></div><div class=\"card\"><h3>Расходы</h3><p class=\"muted\">Формат для загрузки аренды, зарплаты, маркетинга.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Скачать шаблон</a></div><div class=\"card\"><h3>Закупки</h3><p class=\"muted\">Импорт закупок ингредиентов и цен.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Скачать шаблон</a></div></div>";
+    echo "</main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'benchmarks') {
+    app_nav('benchmarks');
+    $benchmarks = [
+        ['Маржа по напиткам', '60–70%', 'Ориентир для кофеен в РФ'],
+        ['Доля аренды', '10–18%', 'От выручки'],
+        ['ФОТ', '18–25%', 'Включая налоги'],
+        ['Себестоимость молока', 'до 25%', 'В структуре рецепта'],
+    ];
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Рыночные бенчмарки</h2><div class=\"muted\">Сравните свои показатели с ориентиром рынка</div></div></div>";
+    echo "<div class=\"card\"><table class=\"table\"><thead><tr><th>Показатель</th><th>Ориентир</th><th>Комментарий</th></tr></thead><tbody>";
+    foreach ($benchmarks as $row) {
+        echo "<tr><td>" . e($row[0]) . "</td><td>" . e($row[1]) . "</td><td>" . e($row[2]) . "</td></tr>";
+    }
+    echo "</tbody></table></div></main>";
     page_footer();
     exit;
 }

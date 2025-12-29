@@ -218,15 +218,69 @@ if ($action === 'update_kpi') {
     $cafe_id = (int)$_POST['cafe_id'];
     $target_margin = (float)$_POST['target_margin'];
     $target_profit = (float)$_POST['target_profit'];
+    $target_revenue = (float)$_POST['target_revenue'];
     $stmt = db()->prepare('SELECT id FROM kpi_targets WHERE cafe_id = ?');
     $stmt->execute([$cafe_id]);
     $row = $stmt->fetch();
     if ($row) {
-        db()->prepare('UPDATE kpi_targets SET target_margin = ?, target_profit = ? WHERE cafe_id = ?')->execute([$target_margin, $target_profit, $cafe_id]);
+        db()->prepare('UPDATE kpi_targets SET target_margin = ?, target_profit = ?, target_revenue = ? WHERE cafe_id = ?')->execute([$target_margin, $target_profit, $target_revenue, $cafe_id]);
     } else {
-        db()->prepare('INSERT INTO kpi_targets (cafe_id, target_margin, target_profit) VALUES (?, ?, ?)')->execute([$cafe_id, $target_margin, $target_profit]);
+        db()->prepare('INSERT INTO kpi_targets (cafe_id, target_margin, target_profit, target_revenue) VALUES (?, ?, ?, ?)')->execute([$cafe_id, $target_margin, $target_profit, $target_revenue]);
     }
     redirect_with_message('/index.php?page=dashboard&cafe_id=' . $cafe_id, 'Цели обновлены.');
+}
+
+if ($action === 'add_cash_shift') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)$_POST['cafe_id'];
+    $shift_date = $_POST['shift_date'];
+    $opening_cash = (float)$_POST['opening_cash'];
+    $closing_cash = (float)$_POST['closing_cash'];
+    $cash_sales = (float)$_POST['cash_sales'];
+    $difference = $closing_cash - ($opening_cash + $cash_sales);
+    $stmt = db()->prepare('INSERT INTO cash_shifts (cafe_id, shift_date, opening_cash, closing_cash, cash_sales, difference) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $shift_date, $opening_cash, $closing_cash, $cash_sales, $difference]);
+    redirect_with_message('/index.php?page=cash_shifts&cafe_id=' . $cafe_id, 'Смена сохранена.');
+}
+
+if ($action === 'add_plan_fact') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)$_POST['cafe_id'];
+    $period_start = $_POST['period_start'];
+    $period_end = $_POST['period_end'];
+    $target_revenue = (float)$_POST['target_revenue'];
+    $target_profit = (float)$_POST['target_profit'];
+    $stmt = db()->prepare('INSERT INTO plan_fact_targets (cafe_id, period_start, period_end, target_revenue, target_profit) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $period_start, $period_end, $target_revenue, $target_profit]);
+    redirect_with_message('/index.php?page=plan_fact&cafe_id=' . $cafe_id, 'Плановые показатели добавлены.');
+}
+
+if ($action === 'add_staff') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)$_POST['cafe_id'];
+    $name = trim($_POST['name']);
+    $role = trim($_POST['role']);
+    $hourly_rate = (float)$_POST['hourly_rate'];
+    $stmt = db()->prepare('INSERT INTO staff (cafe_id, name, role, hourly_rate) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $name, $role, $hourly_rate]);
+    redirect_with_message('/index.php?page=staff&cafe_id=' . $cafe_id, 'Сотрудник добавлен.');
+}
+
+if ($action === 'add_staff_shift') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $staff_id = (int)$_POST['staff_id'];
+    $shift_date = $_POST['shift_date'];
+    $hours = (float)$_POST['hours'];
+    $stmt = db()->prepare('INSERT INTO staff_shifts (staff_id, shift_date, hours) VALUES (?, ?, ?)');
+    $stmt->execute([$staff_id, $shift_date, $hours]);
+    $stmt = db()->prepare('SELECT cafe_id FROM staff WHERE id = ?');
+    $stmt->execute([$staff_id]);
+    $cafe_id = $stmt->fetch()['cafe_id'] ?? 0;
+    redirect_with_message('/index.php?page=staff&cafe_id=' . $cafe_id, 'Смена сотрудника добавлена.');
 }
 
 function import_csv_rows(string $path): array {
@@ -398,6 +452,28 @@ if ($action === 'export_pnl') {
     exit;
 }
 
+if ($action === 'download_template') {
+    $type = $_GET['type'] ?? '';
+    $templates = [
+        'sales' => ['напиток;кол-во;сумма;дата', 'Капучино;12;4200;2025-01-10'],
+        'expenses' => ['категория;сумма;дата', 'Аренда;85000;2025-01-05'],
+        'purchases' => ['ингредиент;кол-во;сумма;дата', 'Молоко;30;2100;2025-01-03'],
+        'cash_shifts' => ['дата;открытие;закрытие;наличные_продажи', '2025-01-10;5000;12400;8900'],
+    ];
+    if (!isset($templates[$type])) {
+        http_response_code(404);
+        echo 'Template not found';
+        exit;
+    }
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $type . '_template.csv"');
+    $output = fopen('php://output', 'w');
+    foreach ($templates[$type] as $line) {
+        fputcsv($output, explode(';', $line), ';');
+    }
+    exit;
+}
+
 if ($action === 'init_payment') {
     $user = require_auth();
     $plan_id = (int)$_POST['plan_id'];
@@ -455,6 +531,13 @@ if ($action === 'tinkoff_callback') {
     if (!$payment) {
         http_response_code(404);
         echo 'not found';
+        exit;
+    }
+    $event_type = $status ?: 'unknown';
+    db()->prepare('INSERT IGNORE INTO payment_events (payment_id, event_type, payload) VALUES (?, ?, ?)')
+        ->execute([$payment_db_id, $event_type, json_encode($data, JSON_UNESCAPED_UNICODE)]);
+    if ($payment['status'] === 'paid') {
+        echo 'OK';
         exit;
     }
     if ($status === 'CONFIRMED' || $status === 'AUTHORIZED') {
