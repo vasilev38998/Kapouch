@@ -103,7 +103,7 @@ function app_nav(string $current, int $cafe_id = 0): void {
         }
         echo "</div></div>";
     }
-    echo "</div></aside>";
+    echo "</div><div class=\"sidebar-footer\"><a class=\"btn btn-ghost\" href=\"/api.php?action=logout\">Выйти</a></div></aside>";
     echo "<div class=\"app-content\"><div class=\"topbar\"><div class=\"topbar-tabs\">";
     foreach ($top_tabs as $key => $data) {
         $active = $current === $key ? 'active' : '';
@@ -199,7 +199,11 @@ if ($page === 'home') {
                 echo "<li>" . e($label) . "</li>";
             }
         }
-        echo "</ul><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Начать</a></div>";
+        if ($user) {
+            echo "</ul><form method=\"post\" action=\"/api.php?action=init_payment\">" . csrf_field() . "<input type=\"hidden\" name=\"plan_id\" value=\"" . e((string)$plan['id']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Оплатить</button></form></div>";
+        } else {
+            echo "</ul><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Начать</a></div>";
+        }
     }
     echo "</div></div></section>";
     echo "<section class=\"section cta\"><div class=\"container cta-inner\"><div><h2>Готовы управлять кофейней как бизнесом?</h2><p>Подключайтесь за 5 минут и начните видеть реальную прибыль.</p></div><a class=\"btn btn-dark\" href=\"/index.php?page=register\">Получить доступ</a></div></section>";
@@ -287,7 +291,7 @@ if ($page === 'plans') {
         }
         echo "</ul>";
         if ($user) {
-            echo "<form method=\"post\" action=\"/api.php?action=init_payment\"><input type=\"hidden\" name=\"plan_id\" value=\"" . e((string)$plan['id']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Оплатить</button></form>";
+            echo "<form method=\"post\" action=\"/api.php?action=init_payment\">" . csrf_field() . "<input type=\"hidden\" name=\"plan_id\" value=\"" . e((string)$plan['id']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Оплатить</button></form>";
         } else {
             echo "<a class=\"btn btn-primary\" href=\"/index.php?page=register\">Создать аккаунт</a>";
         }
@@ -1143,6 +1147,10 @@ if ($page === 'calendar') {
             $reminders[] = "Через несколько дней " . lower_text($event['title']) . " (" . date('d.m', strtotime($event['due_date'])) . ").";
         }
     }
+    $events_by_date = [];
+    foreach ($events as $event) {
+        $events_by_date[$event['due_date']][] = $event;
+    }
     $month_stmt = db()->prepare('SELECT DATE_FORMAT(expense_date, \"%Y-%m\") AS month, SUM(amount) AS total FROM expenses WHERE cafe_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 4 MONTH) GROUP BY month ORDER BY month DESC');
     $month_stmt->execute([$cafe_id]);
     $months = $month_stmt->fetchAll();
@@ -1180,6 +1188,31 @@ if ($page === 'calendar') {
         }
         echo "</div>";
     }
+    $month_start = new DateTime('first day of this month');
+    $days_in_month = (int)$month_start->format('t');
+    $start_weekday = (int)$month_start->format('N');
+    $today_key = date('Y-m-d');
+    echo "<div class=\"card calendar-card\"><div class=\"calendar-head\"><div><h3>Календарь на месяц</h3><div class=\"muted\">" . e($month_start->format('F Y')) . "</div></div><a class=\"btn btn-ghost\" href=\"#add-event\">Добавить событие</a></div>";
+    echo "<div class=\"calendar-grid\">";
+    foreach (['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as $weekday) {
+        echo "<div class=\"calendar-cell calendar-label\">" . e($weekday) . "</div>";
+    }
+    for ($i = 1; $i < $start_weekday; $i++) {
+        echo "<div class=\"calendar-cell calendar-empty\"></div>";
+    }
+    for ($day = 1; $day <= $days_in_month; $day++) {
+        $date_key = $month_start->format('Y-m-') . str_pad((string)$day, 2, '0', STR_PAD_LEFT);
+        $is_today = $date_key === $today_key ? ' calendar-today' : '';
+        $count = isset($events_by_date[$date_key]) ? count($events_by_date[$date_key]) : 0;
+        echo "<div class=\"calendar-cell{$is_today}\"><div class=\"calendar-day\">" . e((string)$day) . "</div>";
+        if ($count > 0) {
+            echo "<div class=\"calendar-count\">Событий: " . e((string)$count) . "</div>";
+        } else {
+            echo "<div class=\"calendar-muted\">Нет событий</div>";
+        }
+        echo "</div>";
+    }
+    echo "</div></div>";
     echo "<div class=\"card\" id=\"add-event\"><h3>Добавить регулярный платеж</h3><form method=\"post\" action=\"/api.php?action=add_calendar_event\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Тип</label><select name=\"event_type\"><option value=\"rent\">Аренда</option><option value=\"salary\">Зарплата</option><option value=\"tax\">Налоги</option><option value=\"payment\">Платеж</option><option value=\"custom\">Другое</option></select></div><div><label>Название</label><input name=\"title\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\"></div><div><label>Дата</label><input name=\"due_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form><div class=\"muted\">События сохраняются и напомнят вам заранее.</div></div>";
     echo "<div class=\"card\"><h3>Ближайшие события</h3>";
     if ($events) {
