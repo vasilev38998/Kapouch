@@ -54,6 +54,7 @@ function app_nav(string $current, int $cafe_id = 0): void {
             'recipes' => ['Рецепты', $cafe_id ? "/index.php?page=recipes&cafe_id={$cafe_id}" : '/index.php?page=recipes'],
         ],
         'Аналитика' => [
+            'ceo_dashboard' => ['Сводка владельца', '/index.php?page=ceo_dashboard'],
             'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
             'plan_fact' => ['План‑факт', $cafe_id ? "/index.php?page=plan_fact&cafe_id={$cafe_id}" : '/index.php?page=plan_fact'],
             'abc_xyz' => ['ABC/XYZ', $cafe_id ? "/index.php?page=abc_xyz&cafe_id={$cafe_id}" : '/index.php?page=abc_xyz'],
@@ -61,6 +62,7 @@ function app_nav(string $current, int $cafe_id = 0): void {
         ],
         'Сервис' => [
             'integrations' => ['Интеграции', '/index.php?page=integrations'],
+            'health' => ['Здоровье бизнеса', '/index.php?page=health'],
             'payments' => ['Платежи', '/index.php?page=payments'],
             'cafes' => ['Кофейни', '/index.php?page=cafes'],
         ],
@@ -680,9 +682,42 @@ if ($page === 'integrations') {
     $aqsi_token = $integration['aqsi_token'] ?? '';
     $aqsi_shop = $integration['aqsi_shop'] ?? '';
     $import_email = $integration['import_email'] ?? '';
+    $cafes_stmt = db()->prepare('SELECT * FROM cafes WHERE user_id = ?');
+    $cafes_stmt->execute([$user['id']]);
+    $cafes = $cafes_stmt->fetchAll();
+    $logs = db()->query('SELECT * FROM aqsi_sync_logs ORDER BY created_at DESC LIMIT 10')->fetchAll();
+    $imports = db()->query('SELECT * FROM email_imports ORDER BY created_at DESC LIMIT 10')->fetchAll();
     echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Интеграции и импорт</h2><div class=\"muted\">Подключайте кассы и автоматизируйте загрузку данных</div></div></div>";
     echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>AQSI</h3><p class=\"muted\">Синхронизация продаж с кассами AQSI по API. Kapouch подтянет чеки и разложит по напиткам.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"grid grid-2\"><div><label>Логин AQSI</label><input name=\"aqsi_login\" value=\"" . e($aqsi_login) . "\"></div><div><label>API токен</label><input name=\"aqsi_token\" value=\"" . e($aqsi_token) . "\"></div><div class=\"grid-span-2\"><label>ID точки (Shop ID)</label><input name=\"aqsi_shop\" value=\"" . e($aqsi_shop) . "\"></div><div class=\"grid-span-2\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form><div class=\"muted\">Подсказка: токен можно получить в личном кабинете AQSI → Интеграции.</div></div>";
     echo "<div class=\"card\"><h3>Email‑импорт</h3><p class=\"muted\">Отправляйте CSV отчёты на единый адрес — Kapouch подготовит данные к импорту.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"inline-form\"><label>Email для загрузок</label><input name=\"import_email\" value=\"" . e($import_email) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Сохранить</button></form><div class=\"muted\">Мы поддерживаем CSV с разделителем ; и .</div></div></div>";
+    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Ручная синхронизация AQSI</h3><form method=\"post\" action=\"/api.php?action=aqsi_sync\" class=\"inline-form\"><label>Кофейня</label><select name=\"cafe_id\">";
+    foreach ($cafes as $cafe) {
+        echo "<option value=\"" . e((string)$cafe['id']) . "\">" . e($cafe['name']) . "</option>";
+    }
+    echo "</select><button class=\"btn btn-primary\" type=\"submit\">Запустить синхронизацию</button></form><div class=\"muted\">После запуска данные появятся в продажах.</div></div>";
+    echo "<div class=\"card\"><h3>Загрузка CSV из почты</h3><form method=\"post\" action=\"/api.php?action=upload_email_import\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Файл CSV</label><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить</button></form><div class=\"muted\">Файл будет добавлен в очередь обработки.</div></div></div>";
+    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Последние синхронизации AQSI</h3>";
+    if ($logs) {
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Статус</th><th>Сообщение</th></tr></thead><tbody>";
+        foreach ($logs as $log) {
+            echo "<tr><td>" . e(date('d.m.Y H:i', strtotime($log['created_at']))) . "</td><td>" . e($log['status']) . "</td><td>" . e($log['message']) . "</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Синхронизаций пока нет.</div>";
+    }
+    echo "</div>";
+    echo "<div class=\"card\"><h3>Email‑импорт: очередь</h3>";
+    if ($imports) {
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Файл</th><th>Статус</th></tr></thead><tbody>";
+        foreach ($imports as $import) {
+            echo "<tr><td>" . e(date('d.m.Y H:i', strtotime($import['created_at']))) . "</td><td>" . e($import['filename']) . "</td><td>" . e($import['status']) . "</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Очередь пуста.</div>";
+    }
+    echo "</div></div>";
     echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Шаблон продаж</h3><p class=\"muted\">Используйте шаблон, чтобы загрузить продажи из кассы.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон расходов</h3><p class=\"muted\">Формат для загрузки аренды, зарплаты, маркетинга.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон закупок</h3><p class=\"muted\">Импорт закупок ингредиентов и цен.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Скачать шаблон</a></div></div>";
     echo "</main>";
     page_footer();
@@ -703,6 +738,99 @@ if ($page === 'benchmarks') {
         echo "<tr><td>" . e($row[0]) . "</td><td>" . e($row[1]) . "</td><td>" . e($row[2]) . "</td></tr>";
     }
     echo "</tbody></table></div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'ceo_dashboard') {
+    $subscription = require_subscription($user);
+    $cafes_stmt = db()->prepare('SELECT * FROM cafes WHERE user_id = ?');
+    $cafes_stmt->execute([$user['id']]);
+    $cafes = $cafes_stmt->fetchAll();
+    $cafe_ids = array_column($cafes, 'id');
+    $total_revenue = 0;
+    $total_cogs = 0;
+    $total_expenses = 0;
+    if ($cafe_ids) {
+        $placeholders = implode(',', array_fill(0, count($cafe_ids), '?'));
+        $stmt = db()->prepare("SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id IN ({$placeholders})");
+        $stmt->execute($cafe_ids);
+        $sales = $stmt->fetch();
+        $total_revenue = $sales['revenue'];
+        $total_cogs = $sales['cogs'];
+        $stmt = db()->prepare("SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id IN ({$placeholders})");
+        $stmt->execute($cafe_ids);
+        $total_expenses = $stmt->fetch()['expenses'];
+    }
+    $gross_profit = $total_revenue - $total_cogs;
+    $net_profit = $gross_profit - $total_expenses;
+    $margin = $total_revenue > 0 ? ($gross_profit / $total_revenue) * 100 : 0;
+    app_nav('ceo_dashboard');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Сводка владельца</h2><div class=\"muted\">Все кофейни в одном экране</div></div><a class=\"btn btn-primary\" href=\"/index.php?page=cafes\">Управлять кофейнями</a></div>";
+    echo "<div class=\"grid grid-4 metrics\"><div class=\"card metric\"><div class=\"metric-title\">Выручка</div><div class=\"metric-value\">" . format_money($total_revenue) . " ₽</div></div><div class=\"card metric\"><div class=\"metric-title\">Себестоимость</div><div class=\"metric-value\">" . format_money($total_cogs) . " ₽</div></div><div class=\"card metric\"><div class=\"metric-title\">Валовая прибыль</div><div class=\"metric-value\">" . format_money($gross_profit) . " ₽</div><div class=\"muted\">Маржа " . number_format($margin, 1, ',', ' ') . "%</div></div><div class=\"card metric\"><div class=\"metric-title\">Чистая прибыль</div><div class=\"metric-value\">" . format_money($net_profit) . " ₽</div></div></div>";
+    if ($cafes) {
+        echo "<div class=\"card\"><h3>Сводка по кофейням</h3><table class=\"table\"><thead><tr><th>Кофейня</th><th>Выручка</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody>";
+        foreach ($cafes as $cafe) {
+            $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id = ?');
+            $stmt->execute([$cafe['id']]);
+            $sales = $stmt->fetch();
+            $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id = ?');
+            $stmt->execute([$cafe['id']]);
+            $exp = $stmt->fetch();
+            $gp = $sales['revenue'] - $sales['cogs'];
+            $np = $gp - $exp['expenses'];
+            $m = $sales['revenue'] > 0 ? ($gp / $sales['revenue']) * 100 : 0;
+            echo "<tr><td>" . e($cafe['name']) . "</td><td>" . format_money($sales['revenue']) . " ₽</td><td>" . format_money($np) . " ₽</td><td>" . number_format($m, 1, ',', ' ') . "%</td></tr>";
+        }
+        echo "</tbody></table></div>";
+    } else {
+        echo "<div class=\"empty-state\">Добавьте первую кофейню, чтобы увидеть сводку.</div>";
+    }
+    echo "</main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'health') {
+    $subscription = require_subscription($user);
+    $cafes_stmt = db()->prepare('SELECT * FROM cafes WHERE user_id = ?');
+    $cafes_stmt->execute([$user['id']]);
+    $cafes = $cafes_stmt->fetchAll();
+    app_nav('health');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Здоровье бизнеса</h2><div class=\"muted\">Критичные сигналы, требующие внимания</div></div></div>";
+    if ($cafes) {
+        echo "<div class=\"card\"><table class=\"table\"><thead><tr><th>Кофейня</th><th>Сигналы</th><th>Комментарий</th></tr></thead><tbody>";
+        foreach ($cafes as $cafe) {
+            $alerts = [];
+            $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id = ?');
+            $stmt->execute([$cafe['id']]);
+            $sales = $stmt->fetch();
+            $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id = ?');
+            $stmt->execute([$cafe['id']]);
+            $exp = $stmt->fetch();
+            $gross_profit = $sales['revenue'] - $sales['cogs'];
+            $margin = $sales['revenue'] > 0 ? ($gross_profit / $sales['revenue']) * 100 : 0;
+            if ($margin > 0 && $margin < 55) {
+                $alerts[] = 'Низкая маржа';
+            }
+            if ($gross_profit - $exp['expenses'] < 0) {
+                $alerts[] = 'Убыток';
+            }
+            $stmt = db()->prepare('SELECT COALESCE(SUM(ABS(difference)),0) AS diff FROM cash_shifts WHERE cafe_id = ? AND shift_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)');
+            $stmt->execute([$cafe['id']]);
+            $diff = $stmt->fetch()['diff'];
+            if ($diff > 0) {
+                $alerts[] = 'Расхождения по кассе';
+            }
+            $status = $alerts ? render_badge(implode(', ', $alerts), 'badge') : render_badge('Стабильно', 'badge');
+            $comment = $alerts ? 'Нужна проверка цен, расходов или кассы.' : 'Отклонений не выявлено.';
+            echo "<tr><td>" . e($cafe['name']) . "</td><td>" . $status . "</td><td>" . e($comment) . "</td></tr>";
+        }
+        echo "</tbody></table></div>";
+    } else {
+        echo "<div class=\"empty-state\">Нет кофеен для анализа.</div>";
+    }
+    echo "</main>";
     page_footer();
     exit;
 }

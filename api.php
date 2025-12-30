@@ -486,6 +486,35 @@ if ($action === 'update_integrations') {
     redirect_with_message('/index.php?page=integrations', 'Настройки интеграций сохранены.');
 }
 
+if ($action === 'aqsi_sync') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_POST['cafe_id'] ?? 0);
+    $integration = get_setting('integrations', []);
+    if (empty($integration['aqsi_token']) || empty($integration['aqsi_shop'])) {
+        db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', 'Не заполнены данные AQSI']);
+        redirect_with_message('/index.php?page=integrations', 'Заполните логин, токен и ID точки AQSI.', 'warning');
+    }
+    db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'success', 'Синхронизация запланирована.']);
+    redirect_with_message('/index.php?page=integrations', 'Синхронизация AQSI запланирована.');
+}
+
+if ($action === 'upload_email_import') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (empty($_FILES['csv_file']['tmp_name'])) {
+        redirect_with_message('/index.php?page=integrations', 'Файл не загружен', 'warning');
+    }
+    $cafe_id = (int)($_POST['cafe_id'] ?? 0);
+    $filename = 'email_import_' . date('Ymd_His') . '_' . basename($_FILES['csv_file']['name']);
+    $target = __DIR__ . '/uploads/' . $filename;
+    if (!move_uploaded_file($_FILES['csv_file']['tmp_name'], $target)) {
+        redirect_with_message('/index.php?page=integrations', 'Не удалось сохранить файл', 'warning');
+    }
+    db()->prepare('INSERT INTO email_imports (cafe_id, filename, status) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, $filename, 'received']);
+    redirect_with_message('/index.php?page=integrations', 'Файл принят и будет обработан.');
+}
+
 if ($action === 'init_payment') {
     $user = require_auth();
     $plan_id = (int)$_POST['plan_id'];

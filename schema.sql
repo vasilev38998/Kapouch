@@ -208,6 +208,22 @@ CREATE TABLE payment_events (
     FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
 );
 
+CREATE TABLE aqsi_sync_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT DEFAULT NULL,
+    status VARCHAR(30) NOT NULL,
+    message VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE email_imports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT DEFAULT NULL,
+    filename VARCHAR(255) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'received',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     setting_key VARCHAR(120) NOT NULL UNIQUE,
