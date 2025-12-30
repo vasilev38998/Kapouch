@@ -179,7 +179,7 @@ if ($page === 'home') {
 }
 
 if ($page === 'login') {
-    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Вход в Kapouch</h2><form method=\"post\" action=\"/api.php?action=login\">";
+    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Вход в Kapouch</h2><form method=\"post\" action=\"/api.php?action=login\">" . csrf_field();
     echo "<label>Email</label><input type=\"email\" name=\"email\" required><label>Пароль</label><input type=\"password\" name=\"password\" required><button class=\"btn btn-primary\" type=\"submit\">Войти</button></form>";
     echo "<div class=\"auth-links\"><a href=\"/index.php?page=reset\">Забыли пароль?</a><a href=\"/index.php?page=register\">Создать аккаунт</a></div></div></main>";
     page_footer();
@@ -187,7 +187,7 @@ if ($page === 'login') {
 }
 
 if ($page === 'register') {
-    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Создание аккаунта</h2><form method=\"post\" action=\"/api.php?action=register\">";
+    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Создание аккаунта</h2><form method=\"post\" action=\"/api.php?action=register\">" . csrf_field();
     echo "<label>Email</label><input type=\"email\" name=\"email\" required><label>Пароль</label><input type=\"password\" name=\"password\" required><label>Подтверждение пароля</label><input type=\"password\" name=\"password_confirm\" required><button class=\"btn btn-primary\" type=\"submit\">Создать аккаунт</button></form>";
     echo "<div class=\"auth-links\"><a href=\"/index.php?page=login\">Уже есть аккаунт?</a></div></div></main>";
     page_footer();
@@ -195,7 +195,7 @@ if ($page === 'register') {
 }
 
 if ($page === 'reset') {
-    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Восстановление пароля</h2><form method=\"post\" action=\"/api.php?action=request_reset\">";
+    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Восстановление пароля</h2><form method=\"post\" action=\"/api.php?action=request_reset\">" . csrf_field();
     echo "<label>Email</label><input type=\"email\" name=\"email\" required><button class=\"btn btn-primary\" type=\"submit\">Отправить ссылку</button></form>";
     echo "<div class=\"muted\">Ссылка придёт на почту в течение нескольких минут.</div></div></main>";
     page_footer();
@@ -204,7 +204,7 @@ if ($page === 'reset') {
 
 if ($page === 'reset_confirm') {
     $token = $_GET['token'] ?? '';
-    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Установить новый пароль</h2><form method=\"post\" action=\"/api.php?action=confirm_reset\">";
+    echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Установить новый пароль</h2><form method=\"post\" action=\"/api.php?action=confirm_reset\">" . csrf_field();
     echo "<input type=\"hidden\" name=\"token\" value=\"" . e($token) . "\"><label>Новый пароль</label><input type=\"password\" name=\"password\" required><button class=\"btn btn-primary\" type=\"submit\">Сохранить пароль</button></form></div></main>";
     page_footer();
     exit;
