@@ -137,6 +137,15 @@ if ($page === 'home') {
         'category_insights' => 'Инсайты по категориям расходов',
         'anomaly_radar' => 'Радар аномалий',
         'benchmark_gap' => 'Сравнение с рынком',
+        'inventory_alerts' => 'Уведомления по остаткам',
+        'writeoffs' => 'Списания и потери',
+        'cashflow_90' => 'Кэш-флоу на 90 дней',
+        'profit_forecast' => 'Прогноз прибыли',
+        'kpi_alerts' => 'Авто‑контроль KPI',
+        'abc_visuals' => 'ABC/XYZ визуализация',
+        'advanced_recommendations' => 'Расширенные рекомендации',
+        'export_pdf' => 'PDF‑отчёты',
+        'export_1c' => 'Экспорт для 1С',
         'export' => 'Экспорт отчётов',
         'recommendations' => 'Умные рекомендации',
         'what_if' => 'Сценарии «А если»',
@@ -213,6 +222,15 @@ if ($page === 'plans') {
         'category_insights' => 'Инсайты по категориям расходов',
         'anomaly_radar' => 'Радар аномалий',
         'benchmark_gap' => 'Сравнение с рынком',
+        'inventory_alerts' => 'Уведомления по остаткам',
+        'writeoffs' => 'Списания и потери',
+        'cashflow_90' => 'Кэш-флоу на 90 дней',
+        'profit_forecast' => 'Прогноз прибыли',
+        'kpi_alerts' => 'Авто‑контроль KPI',
+        'abc_visuals' => 'ABC/XYZ визуализация',
+        'advanced_recommendations' => 'Расширенные рекомендации',
+        'export_pdf' => 'PDF‑отчёты',
+        'export_1c' => 'Экспорт для 1С',
         'export' => 'Экспорт отчётов',
         'recommendations' => 'Умные рекомендации',
         'what_if' => 'Сценарии «А если»',
@@ -340,6 +358,31 @@ if ($page === 'dashboard') {
         }
     }
 
+    if (feature_enabled($subscription, 'kpi_alerts')) {
+        $kpi_stmt = db()->prepare('SELECT * FROM kpi_targets WHERE cafe_id = ?');
+        $kpi_stmt->execute([$selected_cafe]);
+        $kpi = $kpi_stmt->fetch();
+        if ($kpi) {
+            $kpi_notes = [];
+            if ($kpi['target_margin'] > 0 && $metrics['gross_margin'] < $kpi['target_margin']) {
+                $kpi_notes[] = 'Маржа ниже цели (' . number_format($kpi['target_margin'], 1, ',', ' ') . '%).';
+            }
+            if ($kpi['target_profit'] > 0 && $metrics['net_profit'] < $kpi['target_profit']) {
+                $kpi_notes[] = 'Прибыль ниже цели.';
+            }
+            if ($kpi['target_revenue'] > 0 && $metrics['revenue'] < $kpi['target_revenue']) {
+                $kpi_notes[] = 'Выручка ниже цели.';
+            }
+            if ($kpi_notes) {
+                echo "<div class=\"card\"><h3>KPI‑контроль</h3><ul class=\"data-list\">";
+                foreach ($kpi_notes as $note) {
+                    echo "<li>" . e($note) . "</li>";
+                }
+                echo "</ul></div>";
+            }
+        }
+    }
+
     if (feature_enabled($subscription, 'daily_focus')) {
         $focus = [];
         $stmt = db()->prepare('SELECT r.name, COALESCE(SUM(s.price_total - s.cost_total),0) AS profit FROM recipes r LEFT JOIN sales s ON s.recipe_id = r.id WHERE r.cafe_id = ? GROUP BY r.id ORDER BY profit DESC LIMIT 1');
@@ -384,6 +427,24 @@ if ($page === 'dashboard') {
         $stmt->execute([$selected_cafe]);
         $cashflow_total = $stmt->fetch()['total'];
         echo "<div class=\"card\"><h3>Прогноз платежей на 30 дней</h3><div class=\"metric-value\">" . format_money($cashflow_total) . " ₽</div><div class=\"muted\">Сумма всех запланированных платежей.</div></div>";
+    }
+
+    if (feature_enabled($subscription, 'cashflow_90')) {
+        $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS total FROM calendar_events WHERE cafe_id = ? AND due_date >= CURDATE() AND due_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)');
+        $stmt->execute([$selected_cafe]);
+        $cashflow_90 = $stmt->fetch()['total'];
+        echo "<div class=\"card\"><h3>Кэш‑флоу на 90 дней</h3><div class=\"metric-value\">" . format_money($cashflow_90) . " ₽</div><div class=\"muted\">Планируемые платежи на квартал.</div></div>";
+    }
+
+    if (feature_enabled($subscription, 'profit_forecast')) {
+        $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id = ? AND sold_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)');
+        $stmt->execute([$selected_cafe]);
+        $month_sales = $stmt->fetch();
+        $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)');
+        $stmt->execute([$selected_cafe]);
+        $month_exp = $stmt->fetch();
+        $forecast_profit = $month_sales['revenue'] - $month_sales['cogs'] - $month_exp['expenses'];
+        echo "<div class=\"card\"><h3>Прогноз прибыли на месяц</h3><div class=\"metric-value\">" . format_money($forecast_profit) . " ₽</div><div class=\"muted\">На основе последних 30 дней.</div></div>";
     }
 
     echo "<div class=\"grid grid-2\">";
@@ -757,6 +818,14 @@ if ($page === 'abc_xyz') {
         echo "<tr><td>" . e($item['name']) . "</td><td>" . format_money($item['revenue']) . " ₽</td><td>" . number_format($share, 1, ',', ' ') . "%</td><td>" . $abc . "</td><td>" . $xyz . "</td></tr>";
     }
     echo "</tbody></table></div></main>";
+    if (feature_enabled($subscription, 'abc_visuals')) {
+        echo "<div class=\"card\"><h3>Визуализация ABC</h3><div class=\"chart-foot\">Доля выручки по напиткам</div><div class=\"abc-bars\">";
+        foreach (array_slice($items, 0, 5) as $item) {
+            $width = $total_revenue > 0 ? ($item['revenue'] / $total_revenue) * 100 : 0;
+            echo "<div class=\"abc-bar\"><span>" . e($item['name']) . "</span><div class=\"bar\" style=\"width:" . number_format($width, 1, '.', '') . "%\"></div></div>";
+        }
+        echo "</div></div>";
+    }
     page_footer();
     exit;
 }

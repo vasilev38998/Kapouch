@@ -312,6 +312,23 @@ a {
     color: var(--muted);
 }
 
+.abc-bars {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.abc-bar span {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.abc-bar .bar {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #c1a46e, #e1c08d);
+}
+
 .visual-header {
     font-size: 13px;
     font-weight: 700;

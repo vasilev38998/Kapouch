@@ -165,18 +165,71 @@ if ($action === 'update_ingredient') {
     $unit = trim($_POST['unit']);
     $cost = (float)$_POST['cost_per_unit'];
     $stock = (float)$_POST['stock_qty'];
+    $reorder = (float)($_POST['reorder_level'] ?? 0);
     $stmt = db()->prepare('SELECT id FROM ingredients WHERE id = ? AND cafe_id = ?');
     $stmt->execute([$ingredient_id, $cafe_id]);
     if (!$stmt->fetch()) {
         redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id, 'Ингредиент не найден', 'warning');
     }
-    $stmt = db()->prepare('UPDATE ingredients SET name = ?, unit = ?, cost_per_unit = ?, stock_qty = ? WHERE id = ?');
-    $stmt->execute([$name, $unit, $cost, $stock, $ingredient_id]);
+    $stmt = db()->prepare('UPDATE ingredients SET name = ?, unit = ?, cost_per_unit = ?, stock_qty = ?, reorder_level = ? WHERE id = ?');
+    $stmt->execute([$name, $unit, $cost, $stock, $reorder, $ingredient_id]);
     $stmt = db()->prepare('INSERT INTO ingredient_cost_history (ingredient_id, cost_per_unit) VALUES (?, ?)');
     $stmt->execute([$ingredient_id, $cost]);
     redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id . '&ingredient_id=' . $ingredient_id, 'Ингредиент обновлён.');
 }
 
+if ($action === 'add_writeoff') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'writeoffs')) {
+        redirect_with_message('/index.php?page=writeoffs', 'Списание доступно на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_POST['cafe_id'];
+    $ingredient_id = (int)$_POST['ingredient_id'];
+    $qty = (float)$_POST['qty'];
+    $reason = trim($_POST['reason'] ?? '');
+    $writeoff_date = $_POST['writeoff_date'] ?? date('Y-m-d');
+    $stmt = db()->prepare('INSERT INTO writeoffs (cafe_id, ingredient_id, qty, reason, writeoff_date) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $ingredient_id, $qty, $reason, $writeoff_date]);
+    db()->prepare('UPDATE ingredients SET stock_qty = GREATEST(stock_qty - ?, 0) WHERE id = ?')->execute([$qty, $ingredient_id]);
+    redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Списание добавлено.');
+}
+
+if ($action === 'export_pdf') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'export_pdf')) {
+        redirect_with_message('/index.php?page=analytics', 'PDF-отчёт доступен на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_GET['cafe_id'];
+    $stmt = db()->prepare('SELECT name FROM cafes WHERE id = ? AND user_id = ?');
+    $stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $stmt->fetch();
+    header('Content-Type: text/html; charset=utf-8');
+    header('Content-Disposition: attachment; filename="report.html"');
+    echo '<h1>Отчёт кофейни ' . e($cafe['name'] ?? '') . '</h1>';
+    echo '<p>Сформировано: ' . date('d.m.Y H:i') . '</p>';
+    exit;
+}
+
+if ($action === 'export_1c') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'export_1c')) {
+        redirect_with_message('/index.php?page=analytics', 'Экспорт для 1С доступен на тарифе Maxi', 'warning');
+    }
+    $cafe_id = (int)$_GET['cafe_id'];
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="1c_expenses.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Дата', 'Категория', 'Сумма', 'Комментарий'], ';');
+    $stmt = db()->prepare('SELECT expense_date, category, amount, comment FROM expenses WHERE cafe_id = ?');
+    $stmt->execute([$cafe_id]);
+    foreach ($stmt->fetchAll() as $row) {
+        fputcsv($output, [$row['expense_date'], $row['category'], $row['amount'], $row['comment']], ';');
+    }
+    exit;
+}
 if ($action === 'add_recipe') {
     $user = require_auth();
     $subscription = require_subscription($user);
