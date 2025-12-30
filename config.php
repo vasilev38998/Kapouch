@@ -41,4 +41,11 @@ return [
     'email' => [
         'from' => 'Kapouch <no-reply@your-domain.ru>',
     ],
+    'company_data' => [
+        'provider' => 'dadata',
+        'base_url' => 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party',
+        'token' => 'DADATA_API_KEY',
+        'secret' => 'DADATA_SECRET',
+        'timeout' => 10,
+    ],
 ];

@@ -34,7 +34,7 @@ if ($action === 'register') {
     $stmt = db()->prepare('INSERT INTO users (email, password_hash, role) VALUES (?, ?, "owner")');
     $stmt->execute([$email, $hash]);
     $_SESSION['user_id'] = db()->lastInsertId();
-    redirect_with_message('/index.php?page=plans', 'Аккаунт создан. Выберите тариф и оплатите доступ.');
+    redirect_with_message('/index.php?page=company_profile', 'Аккаунт создан. Заполните данные вашей компании.');
 }
 
 if ($action === 'login') {
@@ -95,6 +95,57 @@ if ($action === 'confirm_reset') {
 }
 
 $user = current_user();
+
+if ($action === 'lookup_company') {
+    $user = require_auth();
+    $inn_raw = $_POST['inn'] ?? '';
+    $inn = preg_replace('/\D/', '', $inn_raw);
+    if (!in_array(strlen($inn), [10, 12], true)) {
+        redirect_with_message('/index.php?page=company_profile', 'ИНН должен содержать 10 или 12 цифр.', 'warning');
+    }
+    $company_data = fetch_company_data($inn);
+    if (!$company_data) {
+        redirect_with_message('/index.php?page=company_profile', 'Не удалось получить данные по ИНН. Проверьте ключ API или попробуйте позже.', 'warning');
+    }
+    $stmt = db()->prepare('INSERT INTO company_profiles (user_id, inn, company_name, short_name, ogrn, kpp, address, ceo_name, status, entity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE inn = VALUES(inn), company_name = VALUES(company_name), short_name = VALUES(short_name), ogrn = VALUES(ogrn), kpp = VALUES(kpp), address = VALUES(address), ceo_name = VALUES(ceo_name), status = VALUES(status), entity_type = VALUES(entity_type)');
+    $stmt->execute([
+        $user['id'],
+        $inn,
+        $company_data['company_name'],
+        $company_data['short_name'],
+        $company_data['ogrn'],
+        $company_data['kpp'],
+        $company_data['address'],
+        $company_data['ceo_name'],
+        $company_data['status'],
+        $company_data['entity_type'],
+    ]);
+    redirect_with_message('/index.php?page=company_profile', 'Данные компании обновлены.');
+}
+
+if ($action === 'save_company_profile') {
+    $user = require_auth();
+    $inn_raw = $_POST['inn'] ?? '';
+    $inn = preg_replace('/\D/', '', $inn_raw);
+    if (!in_array(strlen($inn), [10, 12], true)) {
+        redirect_with_message('/index.php?page=company_profile', 'ИНН должен содержать 10 или 12 цифр.', 'warning');
+    }
+    $entity_type = $_POST['entity_type'] === 'individual' ? 'individual' : 'company';
+    $stmt = db()->prepare('INSERT INTO company_profiles (user_id, inn, company_name, short_name, ogrn, kpp, address, ceo_name, status, entity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE inn = VALUES(inn), company_name = VALUES(company_name), short_name = VALUES(short_name), ogrn = VALUES(ogrn), kpp = VALUES(kpp), address = VALUES(address), ceo_name = VALUES(ceo_name), status = VALUES(status), entity_type = VALUES(entity_type)');
+    $stmt->execute([
+        $user['id'],
+        $inn,
+        trim($_POST['company_name'] ?? ''),
+        trim($_POST['short_name'] ?? ''),
+        trim($_POST['ogrn'] ?? ''),
+        trim($_POST['kpp'] ?? ''),
+        trim($_POST['address'] ?? ''),
+        trim($_POST['ceo_name'] ?? ''),
+        trim($_POST['status'] ?? ''),
+        $entity_type,
+    ]);
+    redirect_with_message('/index.php?page=company_profile', 'Данные компании сохранены.');
+}
 
 if ($action === 'create_cafe') {
     $user = require_auth();
@@ -982,6 +1033,63 @@ function tinkoff_request(string $url, array $payload): array {
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     return ['status' => $status, 'data' => json_decode($response, true) ?: [], 'raw' => $response];
+}
+
+function fetch_company_data(string $inn): ?array {
+    $config = require __DIR__ . '/config.php';
+    $provider = $config['company_data']['provider'] ?? '';
+    if ($provider !== 'dadata') {
+        return null;
+    }
+    $token = $config['company_data']['token'] ?? '';
+    if (!$token || $token === 'DADATA_API_KEY') {
+        return null;
+    }
+    $payload = json_encode(['query' => $inn, 'count' => 1], JSON_UNESCAPED_UNICODE);
+    $headers = [
+        'Content-Type: application/json',
+        'Accept: application/json',
+        'Authorization: Token ' . $token,
+    ];
+    if (!empty($config['company_data']['secret']) && $config['company_data']['secret'] !== 'DADATA_SECRET') {
+        $headers[] = 'X-Secret: ' . $config['company_data']['secret'];
+    }
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers),
+            'content' => $payload,
+            'timeout' => (int)($config['company_data']['timeout'] ?? 10),
+        ],
+    ]);
+    $result = @file_get_contents($config['company_data']['base_url'], false, $context);
+    if (!$result) {
+        return null;
+    }
+    $data = json_decode($result, true);
+    $suggestion = $data['suggestions'][0]['data'] ?? null;
+    if (!$suggestion) {
+        return null;
+    }
+    $entity_type = ($suggestion['type'] ?? '') === 'INDIVIDUAL' ? 'individual' : 'company';
+    $status = $suggestion['state']['status'] ?? '';
+    $status_map = [
+        'ACTIVE' => 'Действующая',
+        'LIQUIDATING' => 'В процессе ликвидации',
+        'LIQUIDATED' => 'Ликвидирована',
+        'REORGANIZING' => 'В процессе реорганизации',
+        'BANKRUPT' => 'Банкротство',
+    ];
+    return [
+        'company_name' => $suggestion['name']['full_with_opf'] ?? '',
+        'short_name' => $suggestion['name']['short_with_opf'] ?? '',
+        'ogrn' => $suggestion['ogrn'] ?? ($suggestion['ogrnip'] ?? ''),
+        'kpp' => $suggestion['kpp'] ?? '',
+        'address' => $suggestion['address']['value'] ?? '',
+        'ceo_name' => $suggestion['management']['name'] ?? '',
+        'status' => $status_map[$status] ?? $status,
+        'entity_type' => $entity_type,
+    ];
 }
 
 http_response_code(404);

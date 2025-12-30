@@ -72,15 +72,16 @@ function app_nav(string $current, int $cafe_id = 0): void {
             'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
             'plan_fact' => ['План‑факт', $cafe_id ? "/index.php?page=plan_fact&cafe_id={$cafe_id}" : '/index.php?page=plan_fact'],
             'abc_xyz' => ['ABC/XYZ', $cafe_id ? "/index.php?page=abc_xyz&cafe_id={$cafe_id}" : '/index.php?page=abc_xyz'],
-            'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
-        ],
-        'Сервис' => [
-            'imports' => ['Импорт', '/index.php?page=imports'],
-            'health' => ['Здоровье бизнеса', '/index.php?page=health'],
-            'payments' => ['Платежи', '/index.php?page=payments'],
-            'cafes' => ['Кофейни', '/index.php?page=cafes'],
-        ],
-    ];
+        'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
+    ],
+    'Сервис' => [
+        'imports' => ['Импорт', '/index.php?page=imports'],
+        'company_profile' => ['Профиль компании', '/index.php?page=company_profile'],
+        'health' => ['Здоровье бизнеса', '/index.php?page=health'],
+        'payments' => ['Платежи', '/index.php?page=payments'],
+        'cafes' => ['Кофейни', '/index.php?page=cafes'],
+    ],
+];
     $top_tabs = [
         'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
         'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
@@ -224,6 +225,32 @@ if ($page === 'register') {
     echo "<main class=\"container auth\"><div class=\"card auth-card\"><h2>Создание аккаунта</h2><form method=\"post\" action=\"/api.php?action=register\">" . csrf_field();
     echo "<label>Email</label><input type=\"email\" name=\"email\" required><label>Пароль</label><input type=\"password\" name=\"password\" required><label>Подтверждение пароля</label><input type=\"password\" name=\"password_confirm\" required><button class=\"btn btn-primary\" type=\"submit\">Создать аккаунт</button></form>";
     echo "<div class=\"auth-links\"><a href=\"/index.php?page=login\">Уже есть аккаунт?</a></div></div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'company_profile') {
+    $user = require_auth();
+    $stmt = db()->prepare('SELECT * FROM company_profiles WHERE user_id = ?');
+    $stmt->execute([$user['id']]);
+    $profile = $stmt->fetch();
+    app_nav('company_profile');
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Профиль компании</h2><div class=\"muted\">Укажите ИНН и подтяните данные вашей компании или ИП</div></div></div>";
+    echo "<div class=\"grid grid-2\">";
+    echo "<div class=\"card\"><h3>Подтянуть данные по ИНН</h3><form method=\"post\" action=\"/api.php?action=lookup_company\" class=\"inline-form\">" . csrf_field() . "<label>ИНН</label><input name=\"inn\" value=\"" . e($profile['inn'] ?? '') . "\" required><button class=\"btn btn-primary\" type=\"submit\">Подтянуть данные</button></form><div class=\"muted\">Для автозаполнения нужен ключ API провайдера (например, DaData).</div></div>";
+    echo "<div class=\"card\"><h3>Данные компании</h3><form method=\"post\" action=\"/api.php?action=save_company_profile\" class=\"grid grid-2\">" . csrf_field();
+    echo "<div><label>ИНН</label><input name=\"inn\" value=\"" . e($profile['inn'] ?? '') . "\" required></div>";
+    echo "<div><label>Тип</label><select name=\"entity_type\"><option value=\"company\"" . (($profile['entity_type'] ?? '') !== 'individual' ? ' selected' : '') . ">Юр. лицо</option><option value=\"individual\"" . (($profile['entity_type'] ?? '') === 'individual' ? ' selected' : '') . ">ИП</option></select></div>";
+    echo "<div><label>Полное название</label><input name=\"company_name\" value=\"" . e($profile['company_name'] ?? '') . "\"></div>";
+    echo "<div><label>Краткое название</label><input name=\"short_name\" value=\"" . e($profile['short_name'] ?? '') . "\"></div>";
+    echo "<div><label>ОГРН / ОГРНИП</label><input name=\"ogrn\" value=\"" . e($profile['ogrn'] ?? '') . "\"></div>";
+    echo "<div><label>КПП (для юр. лица)</label><input name=\"kpp\" value=\"" . e($profile['kpp'] ?? '') . "\"></div>";
+    echo "<div class=\"grid-span-2\"><label>Юридический адрес</label><input name=\"address\" value=\"" . e($profile['address'] ?? '') . "\"></div>";
+    echo "<div><label>Руководитель</label><input name=\"ceo_name\" value=\"" . e($profile['ceo_name'] ?? '') . "\"></div>";
+    echo "<div><label>Статус</label><input name=\"status\" value=\"" . e($profile['status'] ?? '') . "\"></div>";
+    echo "<div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div>";
+    echo "</form></div>";
+    echo "</div></main>";
     page_footer();
     exit;
 }

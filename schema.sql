@@ -7,6 +7,24 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE company_profiles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    inn VARCHAR(12) NOT NULL,
+    company_name VARCHAR(255) DEFAULT NULL,
+    short_name VARCHAR(255) DEFAULT NULL,
+    ogrn VARCHAR(15) DEFAULT NULL,
+    kpp VARCHAR(9) DEFAULT NULL,
+    address VARCHAR(255) DEFAULT NULL,
+    ceo_name VARCHAR(190) DEFAULT NULL,
+    status VARCHAR(60) DEFAULT NULL,
+    entity_type ENUM('company','individual') NOT NULL DEFAULT 'company',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_company_inn (inn)
+);
+
 CREATE TABLE password_resets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
