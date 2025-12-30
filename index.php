@@ -132,6 +132,11 @@ if ($page === 'home') {
         'smart_calendar' => 'Умный календарь бизнеса',
         'smart_reminders' => 'Напоминания и контроль сроков',
         'daily_focus' => 'Ежедневный фокус владельца',
+        'quick_report' => 'Экспресс-отчёт недели',
+        'cashflow_forecast' => 'Прогноз платежей на 30 дней',
+        'category_insights' => 'Инсайты по категориям расходов',
+        'anomaly_radar' => 'Радар аномалий',
+        'benchmark_gap' => 'Сравнение с рынком',
         'export' => 'Экспорт отчётов',
         'recommendations' => 'Умные рекомендации',
         'what_if' => 'Сценарии «А если»',
@@ -203,6 +208,11 @@ if ($page === 'plans') {
         'smart_calendar' => 'Умный календарь бизнеса',
         'smart_reminders' => 'Напоминания и контроль сроков',
         'daily_focus' => 'Ежедневный фокус владельца',
+        'quick_report' => 'Экспресс-отчёт недели',
+        'cashflow_forecast' => 'Прогноз платежей на 30 дней',
+        'category_insights' => 'Инсайты по категориям расходов',
+        'anomaly_radar' => 'Радар аномалий',
+        'benchmark_gap' => 'Сравнение с рынком',
         'export' => 'Экспорт отчётов',
         'recommendations' => 'Умные рекомендации',
         'what_if' => 'Сценарии «А если»',
@@ -355,6 +365,25 @@ if ($page === 'dashboard') {
             echo "<div class=\"muted\">Нет данных для фокуса. Добавьте продажи и расходы.</div>";
         }
         echo "</div>";
+    }
+
+    if (feature_enabled($subscription, 'quick_report')) {
+        $week_start = (new DateTime())->modify('-7 days')->format('Y-m-d');
+        $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue, COALESCE(SUM(cost_total),0) AS cogs FROM sales WHERE cafe_id = ? AND sold_at >= ?');
+        $stmt->execute([$selected_cafe, $week_start]);
+        $week_sales = $stmt->fetch();
+        $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS expenses FROM expenses WHERE cafe_id = ? AND expense_date >= ?');
+        $stmt->execute([$selected_cafe, $week_start]);
+        $week_exp = $stmt->fetch();
+        $week_profit = $week_sales['revenue'] - $week_sales['cogs'] - $week_exp['expenses'];
+        echo "<div class=\"card\"><h3>Экспресс-отчёт недели</h3><ul class=\"data-list\"><li>Выручка <span>" . format_money($week_sales['revenue']) . " ₽</span></li><li>Себестоимость <span>" . format_money($week_sales['cogs']) . " ₽</span></li><li>Расходы <span>" . format_money($week_exp['expenses']) . " ₽</span></li><li>Прибыль <span>" . format_money($week_profit) . " ₽</span></li></ul></div>";
+    }
+
+    if (feature_enabled($subscription, 'cashflow_forecast')) {
+        $stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS total FROM calendar_events WHERE cafe_id = ? AND due_date >= CURDATE() AND due_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)');
+        $stmt->execute([$selected_cafe]);
+        $cashflow_total = $stmt->fetch()['total'];
+        echo "<div class=\"card\"><h3>Прогноз платежей на 30 дней</h3><div class=\"metric-value\">" . format_money($cashflow_total) . " ₽</div><div class=\"muted\">Сумма всех запланированных платежей.</div></div>";
     }
 
     echo "<div class=\"grid grid-2\">";
@@ -967,6 +996,22 @@ if ($page === 'health') {
             if ($diff > 0) {
                 $alerts[] = 'Расхождения по кассе';
             }
+            if (feature_enabled($subscription, 'anomaly_radar')) {
+                $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue FROM sales WHERE cafe_id = ? AND sold_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)');
+                $stmt->execute([$cafe['id']]);
+                $week_now = $stmt->fetch()['revenue'];
+                $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue FROM sales WHERE cafe_id = ? AND sold_at BETWEEN DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND DATE_SUB(CURDATE(), INTERVAL 7 DAY)');
+                $stmt->execute([$cafe['id']]);
+                $week_prev = $stmt->fetch()['revenue'];
+                if ($week_prev > 0 && $week_now < $week_prev * 0.8) {
+                    $alerts[] = 'Падение выручки';
+                }
+            }
+            if (feature_enabled($subscription, 'benchmark_gap')) {
+                if ($margin > 0 && $margin < 60) {
+                    $alerts[] = 'Маржа ниже рынка';
+                }
+            }
             $status = $alerts ? render_badge(implode(', ', $alerts), 'badge') : render_badge('Стабильно', 'badge');
             $comment = $alerts ? 'Нужна проверка цен, расходов или кассы.' : 'Отклонений не выявлено.';
             echo "<tr><td>" . e($cafe['name']) . "</td><td>" . $status . "</td><td>" . e($comment) . "</td></tr>";
@@ -1078,6 +1123,23 @@ if ($page === 'analytics') {
         $delta = $prev_revenue > 0 ? (($sales['revenue'] - $prev_revenue) / $prev_revenue) * 100 : 0;
         echo "<div class=\"card\"><h3>Сравнение с предыдущим периодом</h3><ul class=\"data-list\"><li>Выручка сейчас <span>" . format_money($sales['revenue']) . " ₽</span></li><li>Выручка ранее <span>" . format_money($prev_revenue) . " ₽</span></li><li>Динамика <span>" . number_format($delta, 1, ',', ' ') . "%</span></li></ul></div>";
     }
+    if (feature_enabled($subscription, 'category_insights')) {
+        $stmt = db()->prepare('SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE cafe_id = ? AND expense_date >= ? GROUP BY category ORDER BY total DESC LIMIT 3');
+        $stmt->execute([$cafe_id, $start]);
+        $top_categories = $stmt->fetchAll();
+        echo "<div class=\"card\"><h3>Инсайты по расходам</h3>";
+        if ($top_categories) {
+            echo "<ul class=\"data-list\">";
+            foreach ($top_categories as $row) {
+                echo "<li>" . e($row['category']) . " <span>" . format_money($row['total']) . " ₽</span></li>";
+            }
+            echo "</ul>";
+        } else {
+            echo "<div class=\"muted\">Нет расходов за период.</div>";
+        }
+        echo "</div>";
+    }
+
     if (feature_enabled($subscription, 'recommendations')) {
         echo "<div class=\"card\"><h3>Умные рекомендации</h3><ul class=\"data-list\"><li>Подними цену на топовый напиток на 10 ₽ для роста маржи.</li><li>Напиток с низкой маржой: пересмотри рецепт или цену.</li><li>Расходы выросли: проверь аренду и списания.</li></ul></div>";
     } else {
