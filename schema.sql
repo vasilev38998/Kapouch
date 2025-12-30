@@ -419,7 +419,7 @@ INSERT INTO settings (setting_key, setting_value) VALUES
     )
 )),
 ('expense_categories', JSON_ARRAY('Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее')),
-('cost_alert_threshold', 0.15);
+('cost_alert_threshold', CAST(0.15 AS JSON));
 
 INSERT INTO users (id, email, password_hash, role, created_at) VALUES
 (1, 'demo@kapouch.ru', '$2y$12$wYyuUvHIE0H2HwLgYwIXt.vhXr.IWLrkDIJ.qvoTh8L6Mvd37EE1.', 'owner', NOW());
