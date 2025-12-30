@@ -3,6 +3,11 @@ require __DIR__ . '/lib.php';
 $config = require __DIR__ . '/config.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+$csrf_exempt = ['tinkoff_callback'];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, $csrf_exempt, true)) {
+    require_csrf();
+}
 
 function redirect_with_message(string $url, string $message, string $type = 'success'): void {
     $_SESSION['flash'] = ['message' => $message, 'type' => $type];
@@ -132,10 +137,16 @@ if ($action === 'add_purchase') {
     $user = require_auth();
     $subscription = require_subscription($user);
     $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
     $ingredient_id = (int)$_POST['ingredient_id'];
     $qty = (float)$_POST['qty'];
     $price_total = (float)$_POST['price_total'];
     $purchased_at = $_POST['purchased_at'];
+    if ($qty <= 0 || $price_total < 0) {
+        redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id, 'Некорректные данные закупки', 'warning');
+    }
     $stmt = db()->prepare('SELECT * FROM ingredients WHERE id = ? AND cafe_id = ?');
     $stmt->execute([$ingredient_id, $cafe_id]);
     $ingredient = $stmt->fetch();
@@ -160,21 +171,27 @@ if ($action === 'update_ingredient') {
     $user = require_auth();
     $subscription = require_subscription($user);
     $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
     $ingredient_id = (int)$_POST['ingredient_id'];
     $name = trim($_POST['name']);
     $unit = trim($_POST['unit']);
     $cost = (float)$_POST['cost_per_unit'];
     $stock = (float)$_POST['stock_qty'];
-    $reorder = (float)($_POST['reorder_level'] ?? 0);
-    $stmt = db()->prepare('SELECT id FROM ingredients WHERE id = ? AND cafe_id = ?');
+    $reorder = max(0, (float)($_POST['reorder_level'] ?? 0));
+    $stmt = db()->prepare('SELECT id, cost_per_unit FROM ingredients WHERE id = ? AND cafe_id = ?');
     $stmt->execute([$ingredient_id, $cafe_id]);
-    if (!$stmt->fetch()) {
+    $existing = $stmt->fetch();
+    if (!$existing) {
         redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id, 'Ингредиент не найден', 'warning');
     }
     $stmt = db()->prepare('UPDATE ingredients SET name = ?, unit = ?, cost_per_unit = ?, stock_qty = ?, reorder_level = ? WHERE id = ?');
     $stmt->execute([$name, $unit, $cost, $stock, $reorder, $ingredient_id]);
-    $stmt = db()->prepare('INSERT INTO ingredient_cost_history (ingredient_id, cost_per_unit) VALUES (?, ?)');
-    $stmt->execute([$ingredient_id, $cost]);
+    if ((float)$existing['cost_per_unit'] !== $cost) {
+        $stmt = db()->prepare('INSERT INTO ingredient_cost_history (ingredient_id, cost_per_unit) VALUES (?, ?)');
+        $stmt->execute([$ingredient_id, $cost]);
+    }
     redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id . '&ingredient_id=' . $ingredient_id, 'Ингредиент обновлён.');
 }
 
@@ -185,13 +202,36 @@ if ($action === 'add_writeoff') {
         redirect_with_message('/index.php?page=writeoffs', 'Списание доступно на тарифах Pro и Maxi', 'warning');
     }
     $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
     $ingredient_id = (int)$_POST['ingredient_id'];
     $qty = (float)$_POST['qty'];
+    if ($qty <= 0) {
+        redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Количество должно быть больше нуля.', 'warning');
+    }
     $reason = trim($_POST['reason'] ?? '');
     $writeoff_date = $_POST['writeoff_date'] ?? date('Y-m-d');
-    $stmt = db()->prepare('INSERT INTO writeoffs (cafe_id, ingredient_id, qty, reason, writeoff_date) VALUES (?, ?, ?, ?, ?)');
-    $stmt->execute([$cafe_id, $ingredient_id, $qty, $reason, $writeoff_date]);
-    db()->prepare('UPDATE ingredients SET stock_qty = GREATEST(stock_qty - ?, 0) WHERE id = ?')->execute([$qty, $ingredient_id]);
+    $ingredient_stmt = db()->prepare('SELECT stock_qty FROM ingredients WHERE id = ? AND cafe_id = ?');
+    $ingredient_stmt->execute([$ingredient_id, $cafe_id]);
+    $ingredient = $ingredient_stmt->fetch();
+    if (!$ingredient) {
+        redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Ингредиент не найден.', 'warning');
+    }
+    $actual_qty = min($qty, (float)$ingredient['stock_qty']);
+    if ($actual_qty <= 0) {
+        redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Недостаточно остатка для списания.', 'warning');
+    }
+    db()->beginTransaction();
+    try {
+        $stmt = db()->prepare('INSERT INTO writeoffs (cafe_id, ingredient_id, qty, reason, writeoff_date) VALUES (?, ?, ?, ?, ?)');
+        $stmt->execute([$cafe_id, $ingredient_id, $actual_qty, $reason, $writeoff_date]);
+        db()->prepare('UPDATE ingredients SET stock_qty = GREATEST(stock_qty - ?, 0) WHERE id = ?')->execute([$actual_qty, $ingredient_id]);
+        db()->commit();
+    } catch (Throwable $e) {
+        db()->rollBack();
+        throw $e;
+    }
     redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Списание добавлено.');
 }
 
@@ -202,7 +242,13 @@ if ($action === 'add_checklist_item') {
         redirect_with_message('/index.php?page=checklist', 'Чек‑лист доступен на тарифах Pro и Maxi', 'warning');
     }
     $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
     $item = trim($_POST['item']);
+    if ($item === '') {
+        redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Задача не может быть пустой.', 'warning');
+    }
     $date = $_POST['checklist_date'] ?? date('Y-m-d');
     $stmt = db()->prepare('INSERT INTO daily_checklist (cafe_id, item, checklist_date, is_done) VALUES (?, ?, ?, 0)');
     $stmt->execute([$cafe_id, $item, $date]);
@@ -214,9 +260,60 @@ if ($action === 'toggle_checklist_item') {
     $subscription = require_subscription($user);
     $item_id = (int)$_POST['item_id'];
     $cafe_id = (int)$_POST['cafe_id'];
+    $stmt = db()->prepare('SELECT dc.id FROM daily_checklist dc JOIN cafes c ON c.id = dc.cafe_id WHERE dc.id = ? AND c.user_id = ? AND dc.cafe_id = ?');
+    $stmt->execute([$item_id, $user['id'], $cafe_id]);
+    if (!$stmt->fetch()) {
+        redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Задача не найдена.', 'warning');
+    }
     $stmt = db()->prepare('UPDATE daily_checklist SET is_done = 1 - is_done WHERE id = ?');
     $stmt->execute([$item_id]);
     redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Статус обновлён.');
+}
+
+if ($action === 'add_checklist_template') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'daily_checklist')) {
+        redirect_with_message('/index.php?page=checklist', 'Чек‑лист доступен на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
+    $item = trim($_POST['item']);
+    if ($item === '') {
+        redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Задача не может быть пустой.', 'warning');
+    }
+    $stmt = db()->prepare('INSERT INTO checklist_templates (cafe_id, item) VALUES (?, ?)');
+    $stmt->execute([$cafe_id, $item]);
+    redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Шаблон добавлен.');
+}
+
+if ($action === 'generate_checklist') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'daily_checklist')) {
+        redirect_with_message('/index.php?page=checklist', 'Чек‑лист доступен на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
+    $date = $_POST['checklist_date'] ?? date('Y-m-d');
+    $templates = db()->prepare('SELECT item FROM checklist_templates WHERE cafe_id = ?');
+    $templates->execute([$cafe_id]);
+    $templates = $templates->fetchAll();
+    $existing_stmt = db()->prepare('SELECT item FROM daily_checklist WHERE cafe_id = ? AND checklist_date = ?');
+    $existing_stmt->execute([$cafe_id, $date]);
+    $existing_items = array_column($existing_stmt->fetchAll(), 'item');
+    foreach ($templates as $template) {
+        if (in_array($template['item'], $existing_items, true)) {
+            continue;
+        }
+        $stmt = db()->prepare('INSERT INTO daily_checklist (cafe_id, item, checklist_date, is_done) VALUES (?, ?, ?, 0)');
+        $stmt->execute([$cafe_id, $template['item'], $date]);
+    }
+    redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id . '&date=' . $date, 'Чек‑лист сформирован.');
 }
 
 if ($action === 'export_pdf') {
@@ -498,8 +595,18 @@ if ($action === 'save_expense_budget') {
         redirect_with_message('/index.php?page=expenses', 'Бюджеты доступны на тарифах Pro и Maxi', 'warning');
     }
     $cafe_id = (int)$_POST['cafe_id'];
+    if (!fetch_user_cafe($user, $cafe_id)) {
+        redirect_with_message('/index.php?page=cafes', 'Кофейня не найдена', 'warning');
+    }
     $category = trim($_POST['category']);
+    $allowed_categories = get_setting('expense_categories', ['Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее']);
+    if (!in_array($category, $allowed_categories, true)) {
+        redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Некорректная категория.', 'warning');
+    }
     $monthly_limit = (float)$_POST['monthly_limit'];
+    if ($monthly_limit < 0) {
+        redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Лимит не может быть отрицательным.', 'warning');
+    }
     $stmt = db()->prepare('INSERT INTO expense_budgets (cafe_id, category, monthly_limit) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE monthly_limit = VALUES(monthly_limit)');
     $stmt->execute([$cafe_id, $category, $monthly_limit]);
     redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Бюджет сохранён.');

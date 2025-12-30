@@ -90,7 +90,8 @@ CREATE TABLE ingredient_cost_history (
     ingredient_id INT NOT NULL,
     cost_per_unit DECIMAL(12,2) NOT NULL,
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE,
+    INDEX idx_ingredient_costs (ingredient_id, recorded_at)
 );
 
 CREATE TABLE recipes (
@@ -131,7 +132,8 @@ CREATE TABLE expenses (
     amount DECIMAL(12,2) NOT NULL,
     expense_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
+    INDEX idx_expenses_cafe_date (cafe_id, expense_date)
 );
 
 CREATE TABLE expense_budgets (
@@ -154,7 +156,8 @@ CREATE TABLE sales (
     sold_at DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
-    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+    INDEX idx_sales_cafe_date (cafe_id, sold_at)
 );
 
 CREATE TABLE daily_checklist (
@@ -164,7 +167,17 @@ CREATE TABLE daily_checklist (
     checklist_date DATE NOT NULL,
     is_done TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
+    INDEX idx_checklist_cafe_date (cafe_id, checklist_date)
+);
+
+CREATE TABLE checklist_templates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    item VARCHAR(190) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
+    INDEX idx_checklist_templates_cafe (cafe_id)
 );
 
 CREATE TABLE writeoffs (
@@ -176,7 +189,8 @@ CREATE TABLE writeoffs (
     writeoff_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
-    FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE,
+    INDEX idx_writeoffs_cafe_date (cafe_id, writeoff_date)
 );
 
 CREATE TABLE kpi_targets (
@@ -404,7 +418,8 @@ INSERT INTO settings (setting_key, setting_value) VALUES
         JSON_OBJECT('name','Мария, кофейня в Екатеринбурге','text','Сервис полностью заменил Excel и дал прозрачную аналитику.')
     )
 )),
-('expense_categories', JSON_ARRAY('Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее'));
+('expense_categories', JSON_ARRAY('Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее')),
+('cost_alert_threshold', 0.15);
 
 INSERT INTO users (id, email, password_hash, role, created_at) VALUES
 (1, 'demo@kapouch.ru', '$2y$12$wYyuUvHIE0H2HwLgYwIXt.vhXr.IWLrkDIJ.qvoTh8L6Mvd37EE1.', 'owner', NOW());

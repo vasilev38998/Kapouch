@@ -10,7 +10,7 @@ $landing = get_setting('landing', []);
 function page_header(string $title, ?array $user): void {
     $app = (require __DIR__ . '/config.php')['app'];
     $body_class = $user ? 'app-body' : 'marketing-body';
-    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#1b1a17\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"></head><body class=\"" . e($body_class) . "\">";
+    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#1b1a17\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"><meta name=\"csrf-token\" content=\"" . e(csrf_token()) . "\"></head><body class=\"" . e($body_class) . "\">";
     echo "<header class=\"site-header\"><div class=\"container header-inner\"><a class=\"logo\" href=\"/\"><span class=\"logo-mark\">K</span>Kapouch</a>";
     echo "<nav class=\"nav\">";
     if ($user) {
@@ -382,13 +382,14 @@ if ($page === 'dashboard') {
     }
 
     if (feature_enabled($subscription, 'cost_alerts')) {
+        $threshold = (float)get_setting('cost_alert_threshold', 0.15);
         $stmt = db()->prepare('SELECT i.name, i.cost_per_unit, (SELECT cost_per_unit FROM ingredient_cost_history h WHERE h.ingredient_id = i.id ORDER BY recorded_at DESC LIMIT 1,1) AS prev_cost FROM ingredients i WHERE i.cafe_id = ?');
         $stmt->execute([$selected_cafe]);
         $alerts = [];
         foreach ($stmt->fetchAll() as $row) {
             if ($row['prev_cost'] && $row['prev_cost'] > 0) {
                 $delta = ($row['cost_per_unit'] - $row['prev_cost']) / $row['prev_cost'];
-                if ($delta > 0.15) {
+                if ($delta > $threshold) {
                     $alerts[] = $row['name'] . ' вырос на ' . number_format($delta * 100, 0) . '%.';
                 }
             }
@@ -403,7 +404,7 @@ if ($page === 'dashboard') {
         } else {
             echo "<div class=\"muted\">Рост себестоимости не обнаружен.</div>";
         }
-        echo "</div>";
+        echo "<div class=\"muted\">Порог: " . number_format($threshold * 100, 0) . "%</div></div>";
     }
 
     if (feature_enabled($subscription, 'kpi_alerts')) {
@@ -739,6 +740,26 @@ if ($page === 'expenses') {
             echo "<option value=\"" . e($category) . "\">" . e($category) . "</option>";
         }
         echo "</select><label>Лимит в месяц</label><input name=\"monthly_limit\" type=\"number\" step=\"0.01\" required><button class=\"btn btn-ghost\" type=\"submit\">Сохранить лимит</button></form><div class=\"muted\">Используем для контроля превышений.</div></div>";
+        $monthStart = date('Y-m-01');
+        $monthEnd = date('Y-m-t');
+        $budget_stmt = db()->prepare('SELECT b.category, b.monthly_limit, COALESCE(SUM(e.amount),0) AS spent FROM expense_budgets b LEFT JOIN expenses e ON e.cafe_id = b.cafe_id AND e.category = b.category AND e.expense_date BETWEEN ? AND ? WHERE b.cafe_id = ? GROUP BY b.id, b.category, b.monthly_limit ORDER BY b.category');
+        $budget_stmt->execute([$monthStart, $monthEnd, $cafe_id]);
+        $budgets = $budget_stmt->fetchAll();
+        echo "<div class=\"card\"><h3>Контроль бюджета</h3>";
+        if ($budgets) {
+            echo "<table class=\"table\"><thead><tr><th>Категория</th><th>Лимит</th><th>Факт</th><th>%</th><th>Статус</th></tr></thead><tbody>";
+            foreach ($budgets as $row) {
+                $limit = (float)$row['monthly_limit'];
+                $spent = (float)$row['spent'];
+                $percent = $limit > 0 ? ($spent / $limit) * 100 : 0;
+                $status = $limit > 0 && $spent > $limit ? 'Превышен' : 'В норме';
+                echo "<tr><td>" . e($row['category']) . "</td><td>" . format_money($limit) . " ₽</td><td>" . format_money($spent) . " ₽</td><td>" . number_format($percent, 0) . "%</td><td>" . e($status) . "</td></tr>";
+            }
+            echo "</tbody></table>";
+        } else {
+            echo "<div class=\"empty-state\">Сначала задайте лимиты по категориям.</div>";
+        }
+        echo "</div>";
     }
     echo "<div class=\"card\"><h3>CSV импорт расходов</h3><form method=\"post\" action=\"/api.php?action=import_expenses\" enctype=\"multipart/form-data\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить CSV</button></form><div class=\"muted\">Формат: категория;сумма;дата (YYYY-MM-DD)</div></div>";
 
@@ -995,10 +1016,26 @@ if ($page === 'checklist') {
     $items_stmt = db()->prepare('SELECT * FROM daily_checklist WHERE cafe_id = ? AND checklist_date = ? ORDER BY created_at DESC');
     $items_stmt->execute([$cafe_id, $date]);
     $items = $items_stmt->fetchAll();
+    $templates_stmt = db()->prepare('SELECT * FROM checklist_templates WHERE cafe_id = ? ORDER BY created_at DESC');
+    $templates_stmt->execute([$cafe_id]);
+    $templates = $templates_stmt->fetchAll();
     app_nav('checklist', $cafe_id);
     echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Ежедневный чек‑лист — " . e($cafe['name']) . "</h2><div class=\"muted\">Контроль ключевых задач дня</div></div></div>";
     echo "<div class=\"card\"><form method=\"get\" class=\"inline-form\"><input type=\"hidden\" name=\"page\" value=\"checklist\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Дата</label><input type=\"date\" name=\"date\" value=\"" . e($date) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Показать</button></form></div>";
     echo "<div class=\"card\"><h3>Добавить задачу</h3><form method=\"post\" action=\"/api.php?action=add_checklist_item\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"checklist_date\" value=\"" . e($date) . "\"><label>Задача</label><input name=\"item\" required><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
+    echo "<div class=\"card\"><h3>Шаблоны задач</h3><div class=\"muted\">Используйте шаблоны, чтобы быстро сформировать чек‑лист на день.</div>";
+    echo "<form method=\"post\" action=\"/api.php?action=add_checklist_template\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Новая задача</label><input name=\"item\" required><button class=\"btn btn-ghost\" type=\"submit\">Добавить в шаблон</button></form>";
+    echo "<form method=\"post\" action=\"/api.php?action=generate_checklist\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"checklist_date\" value=\"" . e($date) . "\"><button class=\"btn btn-primary\" type=\"submit\">Сформировать на дату</button></form>";
+    if ($templates) {
+        echo "<ul class=\"data-list\">";
+        foreach ($templates as $template) {
+            echo "<li>" . e($template['item']) . "</li>";
+        }
+        echo "</ul>";
+    } else {
+        echo "<div class=\"empty-state\">Шаблонов пока нет.</div>";
+    }
+    echo "</div>";
     echo "<div class=\"card\"><h3>Список</h3>";
     if ($items) {
         echo "<table class=\"table\"><thead><tr><th>Статус</th><th>Задача</th><th>Действие</th></tr></thead><tbody>";

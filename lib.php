@@ -23,6 +23,26 @@ function e(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+function csrf_token(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrf_field(): string {
+    return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
+}
+
+function require_csrf(): void {
+    $token = $_POST['_csrf'] ?? '';
+    if (!$token || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
+        http_response_code(403);
+        echo 'Некорректный CSRF токен';
+        exit;
+    }
+}
+
 function current_user(): ?array {
     if (empty($_SESSION['user_id'])) {
         return null;
@@ -146,6 +166,13 @@ function resolve_cafe_id(array $user, ?int $requested_id = null): ?int {
     $stmt->execute([$user['id']]);
     $row = $stmt->fetch();
     return $row ? (int)$row['id'] : null;
+}
+
+function fetch_user_cafe(array $user, int $cafe_id): ?array {
+    $stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $stmt->fetch();
+    return $cafe ?: null;
 }
 
 function render_badge(string $text, string $class = 'badge'): string {
