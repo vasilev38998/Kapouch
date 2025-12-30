@@ -10,7 +10,7 @@ $landing = get_setting('landing', []);
 function page_header(string $title, ?array $user): void {
     $app = (require __DIR__ . '/config.php')['app'];
     $body_class = $user ? 'app-body' : 'marketing-body';
-    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"></head><body class=\"" . e($body_class) . "\">";
+    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#1b1a17\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"></head><body class=\"" . e($body_class) . "\">";
     echo "<header class=\"site-header\"><div class=\"container header-inner\"><a class=\"logo\" href=\"/\"><span class=\"logo-mark\">K</span>Kapouch</a>";
     echo "<nav class=\"nav\">";
     if ($user) {
@@ -813,7 +813,7 @@ if ($page === 'calendar') {
     $in_five = (clone $today)->modify('+5 days')->format('Y-m-d');
     foreach ($events as $event) {
         if ($event['due_date'] <= $in_five) {
-            $reminders[] = "Через несколько дней " . mb_strtolower($event['title']) . " (" . date('d.m', strtotime($event['due_date'])) . ").";
+            $reminders[] = "Через несколько дней " . lower_text($event['title']) . " (" . date('d.m', strtotime($event['due_date'])) . ").";
         }
     }
     $month_stmt = db()->prepare('SELECT DATE_FORMAT(expense_date, \"%Y-%m\") AS month, SUM(amount) AS total FROM expenses WHERE cafe_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 4 MONTH) GROUP BY month ORDER BY month DESC');

@@ -102,6 +102,13 @@ function format_money($value): string {
     return number_format((float)$value, 2, ',', ' ');
 }
 
+function lower_text(string $value): string {
+    if (function_exists('mb_strtolower')) {
+        return mb_strtolower($value, 'UTF-8');
+    }
+    return strtolower($value);
+}
+
 function calculate_recipe_cost(int $recipe_id): float {
     $stmt = db()->prepare('SELECT ri.qty, i.cost_per_unit FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id WHERE ri.recipe_id = ?');
     $stmt->execute([$recipe_id]);

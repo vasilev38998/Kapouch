@@ -689,7 +689,7 @@ if ($action === 'extend_subscription') {
         $current_end = new DateTime($sub['ends_at']);
         $base = $current_end > new DateTime() ? $current_end : new DateTime();
         $new_end = $base->modify("+{$days} days")->format('Y-m-d H:i:s');
-        db()->prepare('UPDATE subscriptions SET ends_at = ?, status = \"active\" WHERE id = ?')->execute([$new_end, $subscription_id]);
+        db()->prepare('UPDATE subscriptions SET ends_at = ?, status = "active" WHERE id = ?')->execute([$new_end, $subscription_id]);
         redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Подписка продлена.');
     }
     redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Не удалось продлить подписку.', 'warning');
@@ -699,7 +699,7 @@ if ($action === 'cancel_subscription') {
     $user = require_auth();
     require_admin($user);
     $subscription_id = (int)$_POST['subscription_id'];
-    db()->prepare('UPDATE subscriptions SET status = \"canceled\", ends_at = NOW() WHERE id = ?')->execute([$subscription_id]);
+    db()->prepare('UPDATE subscriptions SET status = "canceled", ends_at = NOW() WHERE id = ?')->execute([$subscription_id]);
     redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Доступ отключён.');
 }
 

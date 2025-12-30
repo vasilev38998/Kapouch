@@ -6,4 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert.style.transform = 'translateY(-8px)';
         }, 5000);
     });
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    }
 });
