@@ -22,9 +22,20 @@ function page_header(string $title, ?array $user): void {
         }
         echo "<a href=\"/api.php?action=logout\" class=\"btn btn-ghost\">Выйти</a>";
     } else {
+        echo "<div class=\"nav-links\">";
+        echo "<a href=\"#industries\">Отрасли</a>";
+        echo "<a href=\"#features\">Возможности</a>";
+        echo "<a href=\"#services\">Услуги</a>";
         echo "<a href=\"/index.php?page=plans\">Тарифы</a>";
+        echo "<a href=\"#partners\">Партнёрам</a>";
+        echo "<a href=\"#resources\">Полезное</a>";
+        echo "</div>";
+        echo "<div class=\"nav-actions\">";
+        echo "<a href=\"https://vk.com\" target=\"_blank\" rel=\"noopener\" class=\"nav-social\">VK</a>";
+        echo "<a href=\"https://t.me\" target=\"_blank\" rel=\"noopener\" class=\"nav-social\">TG</a>";
         echo "<a href=\"/index.php?page=login\" class=\"btn btn-ghost\">Войти</a>";
-        echo "<a href=\"/index.php?page=register\" class=\"btn btn-primary\">Запустить учёт</a>";
+        echo "<a href=\"/index.php?page=register\" class=\"btn btn-primary\">Регистрация</a>";
+        echo "</div>";
     }
     echo "</nav></div></header>";
     if ($user) {
@@ -137,23 +148,28 @@ if ($page === 'home') {
     $advantages = $landing['advantages'] ?? [];
     $testimonials = $landing['testimonials'] ?? [];
     echo "<main>";
-    echo "<section class=\"hero\"><div class=\"container hero-inner\"><div><div class=\"badge\">SaaS для владельцев кофеен</div><h1>" . e($landing['hero_title'] ?? 'Финансовая система для владельцев кофеен') . "</h1><p>" . e($landing['hero_subtitle'] ?? 'Полный контроль маржи, себестоимости и прибыли. Решения на цифрах, а не на интуиции.') . "</p><div class=\"hero-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=register\">" . e($landing['cta_primary'] ?? 'Попробовать 7 дней') . "</a><a class=\"btn btn-ghost\" href=\"/index.php?page=plans\">" . e($landing['cta_secondary'] ?? 'Купить доступ') . "</a></div><div class=\"hero-note\">Без автопродления · Оплата за период · Фискализация по 54‑ФЗ</div><div class=\"hero-stats\"><div><span>+12%</span> рост маржи за 30 дней</div><div><span>4.9/5</span> средняя оценка клиентов</div><div><span>7 минут</span> на ежедневный контроль</div></div></div><div class=\"hero-card\"><h3>Что внутри Kapouch</h3><ul><li>Средневзвешенная себестоимость по рецептам</li><li>P&L, unit-экономика, точка безубыточности</li><li>Контроль закупок, расходов и продаж</li><li>Тинькофф СБП + онлайн-чеки</li></ul><div class=\"hero-visual\"><div class=\"visual-header\">Дашборд кофейни</div><div class=\"visual-bars\"><span style=\"height: 30%\"></span><span style=\"height: 55%\"></span><span style=\"height: 40%\"></span><span style=\"height: 70%\"></span><span style=\"height: 50%\"></span></div><div class=\"visual-footer\"><span>Маржа +8.4%</span><span>Прибыль 214 000 ₽</span></div></div><div class=\"hero-card-footer\"><strong>Запуск за 1 день</strong><span>без разработки и серверов</span></div></div></div></section>";
-    echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Рост прибыли в цифрах</h2><p class=\"muted\">Визуальные метрики, которые видит владелец каждый день.</p></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Открыть демо</a></div><div class=\"grid grid-3\">"
+    echo "<section class=\"hero\" id=\"industries\"><div class=\"container hero-inner\">";
+    echo "<div class=\"hero-copy\"><div class=\"badge\">SaaS для владельцев кофеен</div><h1>" . e($landing['hero_title'] ?? 'Финансовая система для владельцев кофеен') . "</h1><p>" . e($landing['hero_subtitle'] ?? 'Полный контроль маржи, себестоимости и прибыли. Решения на цифрах, а не на интуиции.') . "</p><div class=\"hero-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=register\">" . e($landing['cta_primary'] ?? 'Попробовать 7 дней') . "</a><a class=\"btn btn-ghost\" href=\"/index.php?page=plans\">" . e($landing['cta_secondary'] ?? 'Купить доступ') . "</a></div><div class=\"hero-note\">Без автопродления · Оплата за период · Фискализация по 54‑ФЗ</div><div class=\"hero-stats\"><div><span>+12%</span> рост маржи за 30 дней</div><div><span>4.9/5</span> средняя оценка клиентов</div><div><span>7 минут</span> на ежедневный контроль</div></div></div>";
+    echo "<div class=\"hero-media\"><div class=\"hero-plate\">";
+    echo "<div class=\"hero-dashboard\"><div class=\"hero-dashboard-card\"><div class=\"chart-title\">Кэш-флоу</div><div class=\"chart-foot\">+18% к прошлому месяцу</div></div><div class=\"hero-dashboard-card\"><div class=\"chart-title\">Маржа</div><div class=\"chart-foot\">Цель 65%</div></div><div class=\"hero-dashboard-card\"><div class=\"chart-title\">Операции</div><div class=\"chart-foot\">Контроль OPEX</div></div></div>";
+    echo "<div class=\"hero-person\"><img src=\"/assets/hero-girl.svg\" alt=\"Эксперт Kapouch\" loading=\"lazy\"></div>";
+    echo "</div></div></div></section>";
+    echo "<section class=\"section\" id=\"features\"><div class=\"container\"><div class=\"section-head\"><div><h2>Рост прибыли в цифрах</h2><p class=\"muted\">Визуальные метрики, которые видит владелец каждый день.</p></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Открыть демо</a></div><div class=\"grid grid-3\">"
         . "<div class=\"card chart-card\"><div class=\"chart-title\">Выручка</div><svg viewBox=\"0 0 120 60\" class=\"chart\"><path d=\"M0 50 L20 40 L40 45 L60 30 L80 25 L100 15 L120 10\" fill=\"none\" stroke=\"#c1a46e\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg><div class=\"chart-foot\"><span>+18% к прошлому месяцу</span></div></div>"
         . "<div class=\"card chart-card\"><div class=\"chart-title\">Маржинальность</div><svg viewBox=\"0 0 120 60\" class=\"chart\"><path d=\"M0 55 L20 48 L40 44 L60 36 L80 28 L100 22 L120 18\" fill=\"none\" stroke=\"#2f3b2f\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg><div class=\"chart-foot\"><span>Цель 65%</span></div></div>"
         . "<div class=\"card chart-card\"><div class=\"chart-title\">Расходы</div><svg viewBox=\"0 0 120 60\" class=\"chart\"><path d=\"M0 20 L20 25 L40 30 L60 40 L80 45 L100 38 L120 32\" fill=\"none\" stroke=\"#a8864d\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg><div class=\"chart-foot\"><span>Контроль OPEX</span></div></div></div></div></section>";
-    echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Почему владельцы кофеен выбирают Kapouch</h2><p class=\"muted\">Сервис учитывает специфику кофейного бизнеса и помогает видеть прибыль на уровне напитков.</p></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Начать сейчас</a></div><div class=\"grid grid-4\">";
+    echo "<section class=\"section\" id=\"services\"><div class=\"container\"><div class=\"section-head\"><div><h2>Почему владельцы кофеен выбирают Kapouch</h2><p class=\"muted\">Сервис учитывает специфику кофейного бизнеса и помогает видеть прибыль на уровне напитков.</p></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Начать сейчас</a></div><div class=\"grid grid-4\">";
     foreach ($advantages as $adv) {
         echo "<div class=\"card\"><h3>" . e($adv['title']) . "</h3><p>" . e($adv['text']) . "</p></div>";
     }
     echo "</div></div></section>";
-    echo "<section class=\"section alt\"><div class=\"container\"><div class=\"section-head\"><div><h2>Отзывы владельцев кофеен</h2><span class=\"muted\">Люди, которые уже считают прибыль по каждому напитку</span></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Хочу так же</a></div><div class=\"testimonial-grid\">";
+    echo "<section class=\"section alt\" id=\"partners\"><div class=\"container\"><div class=\"section-head\"><div><h2>Отзывы владельцев кофеен</h2><span class=\"muted\">Люди, которые уже считают прибыль по каждому напитку</span></div><a class=\"btn btn-ghost\" href=\"/index.php?page=register\">Хочу так же</a></div><div class=\"testimonial-grid\">";
     foreach ($testimonials as $item) {
         $initials = mb_substr($item['name'], 0, 1, 'UTF-8');
         echo "<div class=\"testimonial-card\"><div class=\"testimonial-head\"><div class=\"avatar\">" . e($initials) . "</div><div><strong>" . e($item['name']) . "</strong><div class=\"muted\">Сеть кофеен</div></div></div><p>“" . e($item['text']) . "”</p><div class=\"testimonial-rating\">★★★★★</div></div>";
     }
     echo "</div></div></section>";
-    echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Тарифы без автопродления</h2><p class=\"muted\">Вы оплачиваете только нужный период. Доступ активируется после оплаты и чека.</p></div><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Запустить сейчас</a></div><div class=\"grid grid-3 pricing\">";
+    echo "<section class=\"section\" id=\"resources\"><div class=\"container\"><div class=\"section-head\"><div><h2>Тарифы без автопродления</h2><p class=\"muted\">Вы оплачиваете только нужный период. Доступ активируется после оплаты и чека.</p></div><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Запустить сейчас</a></div><div class=\"grid grid-3 pricing\">";
     $plans = db()->query('SELECT * FROM plans WHERE active = 1 ORDER BY price')->fetchAll();
     $feature_labels = [
         'pnl_full' => 'Полный P&L с детализацией',
