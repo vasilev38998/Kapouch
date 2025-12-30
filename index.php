@@ -49,6 +49,8 @@ function app_nav(string $current, int $cafe_id = 0): void {
             'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
             'cash_shifts' => ['Смены', $cafe_id ? "/index.php?page=cash_shifts&cafe_id={$cafe_id}" : '/index.php?page=cash_shifts'],
             'staff' => ['Персонал', $cafe_id ? "/index.php?page=staff&cafe_id={$cafe_id}" : '/index.php?page=staff'],
+            'writeoffs' => ['Списания', $cafe_id ? "/index.php?page=writeoffs&cafe_id={$cafe_id}" : '/index.php?page=writeoffs'],
+            'checklist' => ['Чек‑лист', $cafe_id ? "/index.php?page=checklist&cafe_id={$cafe_id}" : '/index.php?page=checklist'],
         ],
         'Продукты' => [
             'ingredients' => ['Ингредиенты', $cafe_id ? "/index.php?page=ingredients&cafe_id={$cafe_id}" : '/index.php?page=ingredients'],
@@ -139,6 +141,10 @@ if ($page === 'home') {
         'benchmark_gap' => 'Сравнение с рынком',
         'inventory_alerts' => 'Уведомления по остаткам',
         'writeoffs' => 'Списания и потери',
+        'expense_budgets' => 'Бюджеты расходов',
+        'cost_alerts' => 'Контроль роста себестоимости',
+        'daily_checklist' => 'Ежедневный чек‑лист',
+        'staff_efficiency' => 'Эффективность персонала',
         'cashflow_90' => 'Кэш-флоу на 90 дней',
         'profit_forecast' => 'Прогноз прибыли',
         'kpi_alerts' => 'Авто‑контроль KPI',
@@ -358,6 +364,48 @@ if ($page === 'dashboard') {
         }
     }
 
+    if (feature_enabled($subscription, 'inventory_alerts')) {
+        $stmt = db()->prepare('SELECT name, stock_qty, reorder_level, unit FROM ingredients WHERE cafe_id = ? AND reorder_level > 0 AND stock_qty <= reorder_level ORDER BY name');
+        $stmt->execute([$selected_cafe]);
+        $low_stock = $stmt->fetchAll();
+        echo "<div class=\"card\"><h3>Уведомления по остаткам</h3>";
+        if ($low_stock) {
+            echo "<ul class=\"data-list\">";
+            foreach ($low_stock as $item) {
+                echo "<li>" . e($item['name']) . " <span>" . e($item['stock_qty']) . " " . e($item['unit']) . "</span></li>";
+            }
+            echo "</ul>";
+        } else {
+            echo "<div class=\"muted\">Все остатки выше минимального уровня.</div>";
+        }
+        echo "</div>";
+    }
+
+    if (feature_enabled($subscription, 'cost_alerts')) {
+        $stmt = db()->prepare('SELECT i.name, i.cost_per_unit, (SELECT cost_per_unit FROM ingredient_cost_history h WHERE h.ingredient_id = i.id ORDER BY recorded_at DESC LIMIT 1,1) AS prev_cost FROM ingredients i WHERE i.cafe_id = ?');
+        $stmt->execute([$selected_cafe]);
+        $alerts = [];
+        foreach ($stmt->fetchAll() as $row) {
+            if ($row['prev_cost'] && $row['prev_cost'] > 0) {
+                $delta = ($row['cost_per_unit'] - $row['prev_cost']) / $row['prev_cost'];
+                if ($delta > 0.15) {
+                    $alerts[] = $row['name'] . ' вырос на ' . number_format($delta * 100, 0) . '%.';
+                }
+            }
+        }
+        echo "<div class=\"card\"><h3>Рост себестоимости</h3>";
+        if ($alerts) {
+            echo "<ul class=\"data-list\">";
+            foreach ($alerts as $alert) {
+                echo "<li>" . e($alert) . "</li>";
+            }
+            echo "</ul>";
+        } else {
+            echo "<div class=\"muted\">Рост себестоимости не обнаружен.</div>";
+        }
+        echo "</div>";
+    }
+
     if (feature_enabled($subscription, 'kpi_alerts')) {
         $kpi_stmt = db()->prepare('SELECT * FROM kpi_targets WHERE cafe_id = ?');
         $kpi_stmt->execute([$selected_cafe]);
@@ -548,7 +596,7 @@ if ($page === 'ingredients') {
     }
     echo "<div class=\"card\" id=\"add-ingredient\"><h3>Добавить новый ингредиент</h3><form method=\"post\" action=\"/api.php?action=add_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Название</label><input name=\"name\" required><label>Ед.изм.</label><input name=\"unit\" placeholder=\"г, мл, шт\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" required><label>Начальный остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"0\"><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
     if ($selected_ingredient) {
-        echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Редактировать ингредиент</h3><form method=\"post\" action=\"/api.php?action=update_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"ingredient_id\" value=\"" . e((string)$selected_ingredient['id']) . "\"><label>Название</label><input name=\"name\" value=\"" . e($selected_ingredient['name']) . "\" required><label>Ед.изм.</label><input name=\"unit\" value=\"" . e($selected_ingredient['unit']) . "\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" value=\"" . e($selected_ingredient['cost_per_unit']) . "\" required><label>Остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"" . e($selected_ingredient['stock_qty']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></form>";
+        echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Редактировать ингредиент</h3><form method=\"post\" action=\"/api.php?action=update_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"ingredient_id\" value=\"" . e((string)$selected_ingredient['id']) . "\"><label>Название</label><input name=\"name\" value=\"" . e($selected_ingredient['name']) . "\" required><label>Ед.изм.</label><input name=\"unit\" value=\"" . e($selected_ingredient['unit']) . "\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" value=\"" . e($selected_ingredient['cost_per_unit']) . "\" required><label>Остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"" . e($selected_ingredient['stock_qty']) . "\"><label>Минимальный остаток</label><input name=\"reorder_level\" type=\"number\" step=\"0.001\" value=\"" . e($selected_ingredient['reorder_level']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></form>";
         if (feature_enabled($subscription, 'unit_economics')) {
             $history_stmt = db()->prepare('SELECT cost_per_unit, recorded_at FROM ingredient_cost_history WHERE ingredient_id = ? ORDER BY recorded_at DESC LIMIT 3');
             $history_stmt->execute([$selected_ingredient['id']]);
@@ -685,6 +733,13 @@ if ($page === 'expenses') {
         echo "<option value=\"" . e($category) . "\">" . e($category) . "</option>";
     }
     echo "</select></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\" required></div><div><label>Дата</label><input name=\"expense_date\" type=\"date\" required></div><div><label>Комментарий</label><input name=\"comment\" placeholder=\"Например, аренда за месяц\"></div><div><button class=\"btn btn-primary\" type=\"submit\">Добавить расход</button></div></form></div>";
+    if (feature_enabled($subscription, 'expense_budgets')) {
+        echo "<div class=\"card\"><h3>Бюджет по категориям</h3><form method=\"post\" action=\"/api.php?action=save_expense_budget\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Категория</label><select name=\"category\">";
+        foreach ($expense_categories as $category) {
+            echo "<option value=\"" . e($category) . "\">" . e($category) . "</option>";
+        }
+        echo "</select><label>Лимит в месяц</label><input name=\"monthly_limit\" type=\"number\" step=\"0.01\" required><button class=\"btn btn-ghost\" type=\"submit\">Сохранить лимит</button></form><div class=\"muted\">Используем для контроля превышений.</div></div>";
+    }
     echo "<div class=\"card\"><h3>CSV импорт расходов</h3><form method=\"post\" action=\"/api.php?action=import_expenses\" enctype=\"multipart/form-data\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить CSV</button></form><div class=\"muted\">Формат: категория;сумма;дата (YYYY-MM-DD)</div></div>";
 
     echo "<div class=\"card\"><h3>Последние расходы</h3>";
@@ -858,8 +913,102 @@ if ($page === 'staff') {
         }
         echo "</tbody></table>";
         echo "<div class=\"muted\">ФОТ за период: " . format_money($payroll) . " ₽</div>";
+        if (feature_enabled($subscription, 'staff_efficiency')) {
+            $stmt = db()->prepare('SELECT COALESCE(SUM(price_total),0) AS revenue FROM sales WHERE cafe_id = ? AND sold_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)');
+            $stmt->execute([$cafe_id]);
+            $revenue = $stmt->fetch()['revenue'];
+            $stmt = db()->prepare('SELECT COALESCE(SUM(ss.hours),0) AS hours FROM staff_shifts ss JOIN staff s ON s.id = ss.staff_id WHERE s.cafe_id = ? AND ss.shift_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)');
+            $stmt->execute([$cafe_id]);
+            $hours = $stmt->fetch()['hours'];
+            $per_hour = $hours > 0 ? $revenue / $hours : 0;
+            echo "<div class=\"card\"><h3>Эффективность персонала</h3><div class=\"metric-value\">" . format_money($per_hour) . " ₽/час</div><div class=\"muted\">За последние 30 дней.</div></div>";
+        }
     } else {
         echo "<div class=\"empty-state\">Добавьте сотрудников, чтобы считать фонд оплаты труда.</div>";
+    }
+    echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'writeoffs') {
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'writeoffs')) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Списания доступны на тарифах Pro и Maxi.</div></main>";
+        page_footer();
+        exit;
+    }
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $ingredients = db()->prepare('SELECT * FROM ingredients WHERE cafe_id = ?');
+    $ingredients->execute([$cafe_id]);
+    $ingredients = $ingredients->fetchAll();
+    $writeoffs = db()->prepare('SELECT w.*, i.name FROM writeoffs w JOIN ingredients i ON i.id = w.ingredient_id WHERE w.cafe_id = ? ORDER BY w.writeoff_date DESC LIMIT 50');
+    $writeoffs->execute([$cafe_id]);
+    $writeoffs = $writeoffs->fetchAll();
+    app_nav('writeoffs', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Списания — " . e($cafe['name']) . "</h2><div class=\"muted\">Учёт потерь и списаний</div></div><a class=\"btn btn-primary\" href=\"#add-writeoff\">Добавить списание</a></div>";
+    echo "<div class=\"card\" id=\"add-writeoff\"><form method=\"post\" action=\"/api.php?action=add_writeoff\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Ингредиент</label><select name=\"ingredient_id\">";
+    foreach ($ingredients as $item) {
+        echo "<option value=\"" . e((string)$item['id']) . "\">" . e($item['name']) . "</option>";
+    }
+    echo "</select></div><div><label>Кол-во</label><input name=\"qty\" type=\"number\" step=\"0.001\" required></div><div><label>Причина</label><input name=\"reason\" placeholder=\"Порча/просрочка\"></div><div><label>Дата</label><input name=\"writeoff_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form></div>";
+    echo "<div class=\"card\"><h3>Последние списания</h3>";
+    if ($writeoffs) {
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Ингредиент</th><th>Кол-во</th><th>Причина</th></tr></thead><tbody>";
+        foreach ($writeoffs as $row) {
+            echo "<tr><td>" . e(date('d.m.Y', strtotime($row['writeoff_date']))) . "</td><td>" . e($row['name']) . "</td><td>" . e($row['qty']) . "</td><td>" . e($row['reason']) . "</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Пока нет списаний.</div>";
+    }
+    echo "</div></main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'checklist') {
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'daily_checklist')) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Чек‑лист доступен на тарифах Pro и Maxi.</div></main>";
+        page_footer();
+        exit;
+    }
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $date = $_GET['date'] ?? date('Y-m-d');
+    $items_stmt = db()->prepare('SELECT * FROM daily_checklist WHERE cafe_id = ? AND checklist_date = ? ORDER BY created_at DESC');
+    $items_stmt->execute([$cafe_id, $date]);
+    $items = $items_stmt->fetchAll();
+    app_nav('checklist', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Ежедневный чек‑лист — " . e($cafe['name']) . "</h2><div class=\"muted\">Контроль ключевых задач дня</div></div></div>";
+    echo "<div class=\"card\"><form method=\"get\" class=\"inline-form\"><input type=\"hidden\" name=\"page\" value=\"checklist\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Дата</label><input type=\"date\" name=\"date\" value=\"" . e($date) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Показать</button></form></div>";
+    echo "<div class=\"card\"><h3>Добавить задачу</h3><form method=\"post\" action=\"/api.php?action=add_checklist_item\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"checklist_date\" value=\"" . e($date) . "\"><label>Задача</label><input name=\"item\" required><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
+    echo "<div class=\"card\"><h3>Список</h3>";
+    if ($items) {
+        echo "<table class=\"table\"><thead><tr><th>Статус</th><th>Задача</th><th>Действие</th></tr></thead><tbody>";
+        foreach ($items as $item) {
+            $status = $item['is_done'] ? 'Выполнено' : 'В работе';
+            echo "<tr><td>" . e($status) . "</td><td>" . e($item['item']) . "</td><td><form method=\"post\" action=\"/api.php?action=toggle_checklist_item\"><input type=\"hidden\" name=\"item_id\" value=\"" . e((string)$item['id']) . "\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Переключить</button></form></td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Задач на выбранную дату нет.</div>";
     }
     echo "</div></main>";
     page_footer();

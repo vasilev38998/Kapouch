@@ -195,6 +195,30 @@ if ($action === 'add_writeoff') {
     redirect_with_message('/index.php?page=writeoffs&cafe_id=' . $cafe_id, 'Списание добавлено.');
 }
 
+if ($action === 'add_checklist_item') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'daily_checklist')) {
+        redirect_with_message('/index.php?page=checklist', 'Чек‑лист доступен на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_POST['cafe_id'];
+    $item = trim($_POST['item']);
+    $date = $_POST['checklist_date'] ?? date('Y-m-d');
+    $stmt = db()->prepare('INSERT INTO daily_checklist (cafe_id, item, checklist_date, is_done) VALUES (?, ?, ?, 0)');
+    $stmt->execute([$cafe_id, $item, $date]);
+    redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Пункт добавлен.');
+}
+
+if ($action === 'toggle_checklist_item') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $item_id = (int)$_POST['item_id'];
+    $cafe_id = (int)$_POST['cafe_id'];
+    $stmt = db()->prepare('UPDATE daily_checklist SET is_done = 1 - is_done WHERE id = ?');
+    $stmt->execute([$item_id]);
+    redirect_with_message('/index.php?page=checklist&cafe_id=' . $cafe_id, 'Статус обновлён.');
+}
+
 if ($action === 'export_pdf') {
     $user = require_auth();
     $subscription = require_subscription($user);
@@ -465,6 +489,20 @@ if ($action === 'add_expense') {
     $stmt = db()->prepare('INSERT INTO expenses (cafe_id, category, comment, amount, expense_date) VALUES (?, ?, ?, ?, ?)');
     $stmt->execute([$cafe_id, $category, $comment, $amount, $expense_date]);
     redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Расход добавлен.');
+}
+
+if ($action === 'save_expense_budget') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'expense_budgets')) {
+        redirect_with_message('/index.php?page=expenses', 'Бюджеты доступны на тарифах Pro и Maxi', 'warning');
+    }
+    $cafe_id = (int)$_POST['cafe_id'];
+    $category = trim($_POST['category']);
+    $monthly_limit = (float)$_POST['monthly_limit'];
+    $stmt = db()->prepare('INSERT INTO expense_budgets (cafe_id, category, monthly_limit) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE monthly_limit = VALUES(monthly_limit)');
+    $stmt->execute([$cafe_id, $category, $monthly_limit]);
+    redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Бюджет сохранён.');
 }
 
 if ($action === 'import_expenses') {

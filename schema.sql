@@ -134,6 +134,16 @@ CREATE TABLE expenses (
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE expense_budgets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    category VARCHAR(120) NOT NULL,
+    monthly_limit DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_budget (cafe_id, category),
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
 CREATE TABLE sales (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cafe_id INT NOT NULL,
@@ -145,6 +155,16 @@ CREATE TABLE sales (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE,
     FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE daily_checklist (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    item VARCHAR(190) NOT NULL,
+    checklist_date DATE NOT NULL,
+    is_done TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE writeoffs (
@@ -282,6 +302,10 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'advanced_recommendations', false,
     'export_pdf', false,
     'export_1c', false,
+    'expense_budgets', false,
+    'cost_alerts', false,
+    'daily_checklist', false,
+    'staff_efficiency', false,
     'export', false,
     'import_limit', 50,
     'recommendations', false,
@@ -314,6 +338,10 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'advanced_recommendations', false,
     'export_pdf', true,
     'export_1c', false,
+    'expense_budgets', true,
+    'cost_alerts', true,
+    'daily_checklist', true,
+    'staff_efficiency', true,
     'export', true,
     'import_limit', 1000000,
     'recommendations', false,
@@ -346,6 +374,10 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'advanced_recommendations', true,
     'export_pdf', true,
     'export_1c', true,
+    'expense_budgets', true,
+    'cost_alerts', true,
+    'daily_checklist', true,
+    'staff_efficiency', true,
     'export', true,
     'import_limit', 1000000,
     'recommendations', true,
