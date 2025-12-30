@@ -40,26 +40,38 @@ function page_footer(): void {
 }
 
 function app_nav(string $current, int $cafe_id = 0): void {
-    $links = [
-        'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
-        'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
-        'plan_fact' => ['План-факт', $cafe_id ? "/index.php?page=plan_fact&cafe_id={$cafe_id}" : '/index.php?page=plan_fact'],
-        'abc_xyz' => ['ABC/XYZ', $cafe_id ? "/index.php?page=abc_xyz&cafe_id={$cafe_id}" : '/index.php?page=abc_xyz'],
-        'cash_shifts' => ['Смены', $cafe_id ? "/index.php?page=cash_shifts&cafe_id={$cafe_id}" : '/index.php?page=cash_shifts'],
-        'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
-        'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
-        'recipes' => ['Рецепты', $cafe_id ? "/index.php?page=recipes&cafe_id={$cafe_id}" : '/index.php?page=recipes'],
-        'ingredients' => ['Ингредиенты', $cafe_id ? "/index.php?page=ingredients&cafe_id={$cafe_id}" : '/index.php?page=ingredients'],
-        'staff' => ['Персонал', $cafe_id ? "/index.php?page=staff&cafe_id={$cafe_id}" : '/index.php?page=staff'],
-        'integrations' => ['Интеграции', '/index.php?page=integrations'],
-        'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
-        'payments' => ['Платежи', '/index.php?page=payments'],
-        'cafes' => ['Кофейни', '/index.php?page=cafes'],
+    $groups = [
+        'Операции' => [
+            'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
+            'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
+            'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
+            'cash_shifts' => ['Смены', $cafe_id ? "/index.php?page=cash_shifts&cafe_id={$cafe_id}" : '/index.php?page=cash_shifts'],
+            'staff' => ['Персонал', $cafe_id ? "/index.php?page=staff&cafe_id={$cafe_id}" : '/index.php?page=staff'],
+        ],
+        'Продукты' => [
+            'ingredients' => ['Ингредиенты', $cafe_id ? "/index.php?page=ingredients&cafe_id={$cafe_id}" : '/index.php?page=ingredients'],
+            'recipes' => ['Рецепты', $cafe_id ? "/index.php?page=recipes&cafe_id={$cafe_id}" : '/index.php?page=recipes'],
+        ],
+        'Аналитика' => [
+            'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
+            'plan_fact' => ['План‑факт', $cafe_id ? "/index.php?page=plan_fact&cafe_id={$cafe_id}" : '/index.php?page=plan_fact'],
+            'abc_xyz' => ['ABC/XYZ', $cafe_id ? "/index.php?page=abc_xyz&cafe_id={$cafe_id}" : '/index.php?page=abc_xyz'],
+            'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
+        ],
+        'Сервис' => [
+            'integrations' => ['Интеграции', '/index.php?page=integrations'],
+            'payments' => ['Платежи', '/index.php?page=payments'],
+            'cafes' => ['Кофейни', '/index.php?page=cafes'],
+        ],
     ];
     echo "<div class=\"app-nav\"><div class=\"container app-nav-inner\">";
-    foreach ($links as $key => $data) {
-        $active = $current === $key ? 'active' : '';
-        echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
+    foreach ($groups as $title => $links) {
+        echo "<div class=\"app-nav-group\"><div class=\"app-nav-title\">" . e($title) . "</div><div class=\"app-nav-links\">";
+        foreach ($links as $key => $data) {
+            $active = $current === $key ? 'active' : '';
+            echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
+        }
+        echo "</div></div>";
     }
     echo "</div></div>";
 }
@@ -662,8 +674,15 @@ if ($page === 'staff') {
 
 if ($page === 'integrations') {
     app_nav('integrations');
-    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Интеграции и импорт</h2><div class=\"muted\">Подготовленные шаблоны для быстрого запуска</div></div></div>";
-    echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Продажи</h3><p class=\"muted\">Используйте шаблон, чтобы загрузить продажи из кассы.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Скачать шаблон</a></div><div class=\"card\"><h3>Расходы</h3><p class=\"muted\">Формат для загрузки аренды, зарплаты, маркетинга.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Скачать шаблон</a></div><div class=\"card\"><h3>Закупки</h3><p class=\"muted\">Импорт закупок ингредиентов и цен.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Скачать шаблон</a></div></div>";
+    $integration = get_setting('integrations', []);
+    $aqsi_login = $integration['aqsi_login'] ?? '';
+    $aqsi_token = $integration['aqsi_token'] ?? '';
+    $aqsi_shop = $integration['aqsi_shop'] ?? '';
+    $import_email = $integration['import_email'] ?? '';
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Интеграции и импорт</h2><div class=\"muted\">Подключайте кассы и автоматизируйте загрузку данных</div></div></div>";
+    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>AQSI</h3><p class=\"muted\">Синхронизация продаж с кассами AQSI по API. Kapouch подтянет чеки и разложит по напиткам.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"grid grid-2\"><div><label>Логин AQSI</label><input name=\"aqsi_login\" value=\"" . e($aqsi_login) . "\"></div><div><label>API токен</label><input name=\"aqsi_token\" value=\"" . e($aqsi_token) . "\"></div><div class=\"grid-span-2\"><label>ID точки (Shop ID)</label><input name=\"aqsi_shop\" value=\"" . e($aqsi_shop) . "\"></div><div class=\"grid-span-2\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form><div class=\"muted\">Подсказка: токен можно получить в личном кабинете AQSI → Интеграции.</div></div>";
+    echo "<div class=\"card\"><h3>Email‑импорт</h3><p class=\"muted\">Отправляйте CSV отчёты на единый адрес — Kapouch подготовит данные к импорту.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"inline-form\"><label>Email для загрузок</label><input name=\"import_email\" value=\"" . e($import_email) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Сохранить</button></form><div class=\"muted\">Мы поддерживаем CSV с разделителем ; и .</div></div></div>";
+    echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Шаблон продаж</h3><p class=\"muted\">Используйте шаблон, чтобы загрузить продажи из кассы.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон расходов</h3><p class=\"muted\">Формат для загрузки аренды, зарплаты, маркетинга.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон закупок</h3><p class=\"muted\">Импорт закупок ингредиентов и цен.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Скачать шаблон</a></div></div>";
     echo "</main>";
     page_footer();
     exit;

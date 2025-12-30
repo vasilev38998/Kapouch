@@ -474,6 +474,18 @@ if ($action === 'download_template') {
     exit;
 }
 
+if ($action === 'update_integrations') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $current = get_setting('integrations', []);
+    $current['aqsi_login'] = trim($_POST['aqsi_login'] ?? $current['aqsi_login'] ?? '');
+    $current['aqsi_token'] = trim($_POST['aqsi_token'] ?? $current['aqsi_token'] ?? '');
+    $current['aqsi_shop'] = trim($_POST['aqsi_shop'] ?? $current['aqsi_shop'] ?? '');
+    $current['import_email'] = trim($_POST['import_email'] ?? $current['import_email'] ?? '');
+    set_setting('integrations', $current);
+    redirect_with_message('/index.php?page=integrations', 'Настройки интеграций сохранены.');
+}
+
 if ($action === 'init_payment') {
     $user = require_auth();
     $plan_id = (int)$_POST['plan_id'];

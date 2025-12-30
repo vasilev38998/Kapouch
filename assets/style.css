@@ -92,24 +92,43 @@ a {
 }
 
 .app-nav-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    padding: 16px 0;
+}
+
+.app-nav-group {
+    display: grid;
+    gap: 10px;
+}
+
+.app-nav-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.app-nav-links {
     display: flex;
-    gap: 18px;
-    padding: 14px 0;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .app-nav a {
-    padding: 8px 14px;
+    padding: 8px 12px;
     border-radius: 999px;
-    background: #f2f4f7;
-    font-size: 14px;
+    background: #f3efe6;
+    font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
 }
 
 .app-nav a.active {
     background: var(--primary);
-    color: #fff;
+    color: #1b1a17;
 }
 
 .badge {
