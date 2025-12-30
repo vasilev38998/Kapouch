@@ -295,3 +295,12 @@ INSERT INTO settings (setting_key, setting_value) VALUES
         JSON_OBJECT('name','Мария, кофейня в Екатеринбурге','text','Сервис полностью заменил Excel и дал прозрачную аналитику.')
     )
 ));
+
+INSERT INTO users (id, email, password_hash, role, created_at) VALUES
+(1, 'demo@kapouch.ru', '$2y$12$wYyuUvHIE0H2HwLgYwIXt.vhXr.IWLrkDIJ.qvoTh8L6Mvd37EE1.', 'owner', NOW());
+
+INSERT INTO cafes (id, user_id, name, city, created_at) VALUES
+(1, 1, 'Kapouch Demo', 'Москва', NOW());
+
+INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status) VALUES
+(1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'active');

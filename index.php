@@ -196,7 +196,7 @@ if ($page === 'dashboard') {
     $cafes = db()->prepare('SELECT * FROM cafes WHERE user_id = ?');
     $cafes->execute([$user['id']]);
     $cafes = $cafes->fetchAll();
-    $selected_cafe = $_GET['cafe_id'] ?? ($cafes[0]['id'] ?? null);
+    $selected_cafe = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $metrics = [
         'revenue' => 0,
         'cogs' => 0,
@@ -351,7 +351,7 @@ if ($page === 'cafes') {
 
 if ($page === 'ingredients') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -396,7 +396,7 @@ if ($page === 'ingredients') {
 
 if ($page === 'recipes') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -440,7 +440,7 @@ if ($page === 'recipes') {
 
 if ($page === 'sales') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -487,7 +487,7 @@ if ($page === 'sales') {
 
 if ($page === 'expenses') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -521,7 +521,7 @@ if ($page === 'expenses') {
 
 if ($page === 'cash_shifts') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -553,7 +553,7 @@ if ($page === 'cash_shifts') {
 
 if ($page === 'plan_fact') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -593,7 +593,7 @@ if ($page === 'plan_fact') {
 
 if ($page === 'abc_xyz') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -641,7 +641,7 @@ if ($page === 'abc_xyz') {
 
 if ($page === 'staff') {
     $subscription = require_subscription($user);
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();
@@ -842,7 +842,7 @@ if ($page === 'analytics') {
         page_footer();
         exit;
     }
-    $cafe_id = (int)($_GET['cafe_id'] ?? 0);
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
     $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
     $cafe_stmt->execute([$cafe_id, $user['id']]);
     $cafe = $cafe_stmt->fetch();

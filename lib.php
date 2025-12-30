@@ -127,6 +127,20 @@ function require_subscription(array $user): array {
     return $subscription;
 }
 
+function resolve_cafe_id(array $user, ?int $requested_id = null): ?int {
+    if ($requested_id) {
+        $stmt = db()->prepare('SELECT id FROM cafes WHERE id = ? AND user_id = ?');
+        $stmt->execute([$requested_id, $user['id']]);
+        if ($stmt->fetch()) {
+            return $requested_id;
+        }
+    }
+    $stmt = db()->prepare('SELECT id FROM cafes WHERE user_id = ? ORDER BY created_at ASC LIMIT 1');
+    $stmt->execute([$user['id']]);
+    $row = $stmt->fetch();
+    return $row ? (int)$row['id'] : null;
+}
+
 function render_badge(string $text, string $class = 'badge'): string {
     return "<span class=\"{$class}\">" . e($text) . "</span>";
 }
