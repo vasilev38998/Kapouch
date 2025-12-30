@@ -27,6 +27,9 @@ function page_header(string $title, ?array $user): void {
         echo "<a href=\"/index.php?page=register\" class=\"btn btn-primary\">Запустить учёт</a>";
     }
     echo "</nav></div></header>";
+    if ($user) {
+        echo "<div class=\"app-shell\">";
+    }
     if (!empty($_SESSION['flash'])) {
         $flash = $_SESSION['flash'];
         unset($_SESSION['flash']);
@@ -36,11 +39,19 @@ function page_header(string $title, ?array $user): void {
 
 function page_footer(): void {
     $year = date('Y');
-    echo "<footer class=\"site-footer\"><div class=\"container footer-inner\"><div><strong>Kapouch</strong> — профессиональный учёт для кофеен. © {$year}</div><div>Поддержка: support@your-domain.ru</div></div></footer>";
+    $user = current_user();
+    if (!$user) {
+        echo "<footer class=\"site-footer\"><div class=\"container footer-inner\"><div><strong>Kapouch</strong> — профессиональный учёт для кофеен. © {$year}</div><div>Поддержка: support@your-domain.ru</div></div></footer>";
+    } else {
+        echo "</div></div>";
+    }
     echo "<script src=\"/assets/app.js\"></script></body></html>";
 }
 
 function app_nav(string $current, int $cafe_id = 0): void {
+    $user = current_user();
+    $subscription = $user ? active_subscription((int)$user['id']) : null;
+    $plan_name = $subscription['plan_name'] ?? 'Без тарифа';
     $groups = [
         'Операции' => [
             'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
@@ -70,16 +81,35 @@ function app_nav(string $current, int $cafe_id = 0): void {
             'cafes' => ['Кофейни', '/index.php?page=cafes'],
         ],
     ];
-    echo "<div class=\"app-nav\"><div class=\"container app-nav-inner\">";
+    $top_tabs = [
+        'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
+        'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
+        'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
+        'analytics' => ['Аналитика', $cafe_id ? "/index.php?page=analytics&cafe_id={$cafe_id}" : '/index.php?page=analytics'],
+        'staff' => ['Персонал', $cafe_id ? "/index.php?page=staff&cafe_id={$cafe_id}" : '/index.php?page=staff'],
+    ];
+    echo "<aside class=\"sidebar\">";
+    echo "<div class=\"sidebar-header\"><div class=\"logo\"><span class=\"logo-mark\">K</span><div><div>Kapouch</div><div class=\"muted\">{$plan_name}</div></div></div></div>";
+    if ($user) {
+        $initials = mb_substr($user['email'], 0, 1, 'UTF-8');
+        echo "<div class=\"sidebar-user\"><div class=\"avatar\">" . e($initials) . "</div><div><div class=\"user-name\">" . e($user['email']) . "</div><div class=\"muted\">Доступ активен</div></div></div>";
+    }
+    echo "<div class=\"sidebar-nav\">";
     foreach ($groups as $title => $links) {
-        echo "<div class=\"app-nav-group\"><div class=\"app-nav-title\">" . e($title) . "</div><div class=\"app-nav-links\">";
+        echo "<div class=\"sidebar-group\"><div class=\"sidebar-title\">" . e($title) . "</div><div class=\"sidebar-links\">";
         foreach ($links as $key => $data) {
             $active = $current === $key ? 'active' : '';
             echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
         }
         echo "</div></div>";
     }
-    echo "</div></div>";
+    echo "</div></aside>";
+    echo "<div class=\"app-content\"><div class=\"topbar\"><div class=\"topbar-tabs\">";
+    foreach ($top_tabs as $key => $data) {
+        $active = $current === $key ? 'active' : '';
+        echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
+    }
+    echo "</div><div class=\"topbar-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$cafe_id) . "\">Добавить продажу</a><a class=\"btn btn-ghost\" href=\"/index.php?page=expenses&cafe_id=" . e((string)$cafe_id) . "\">Добавить расход</a></div></div>";
 }
 
 function guard_subscription(?array $subscription): void {
