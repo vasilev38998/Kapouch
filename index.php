@@ -38,13 +38,13 @@ function page_header(string $title, ?array $user): void {
         echo "</div>";
     }
     echo "</nav></div></header>";
-    if ($user) {
-        echo "<div class=\"app-shell\">";
-    }
     if (!empty($_SESSION['flash'])) {
         $flash = $_SESSION['flash'];
         unset($_SESSION['flash']);
         echo "<div class=\"container\"><div class=\"alert {$flash['type']}\">" . e($flash['message']) . "</div></div>";
+    }
+    if ($user) {
+        echo "<div class=\"app-shell\">";
     }
 }
 
@@ -289,6 +289,9 @@ if ($page === 'reset_confirm') {
 }
 
 if ($page === 'plans') {
+    if ($user) {
+        app_nav('plans');
+    }
     $plans = db()->query('SELECT * FROM plans WHERE active = 1 ORDER BY price')->fetchAll();
     $feature_labels = [
         'pnl_full' => 'Полный P&L с детализацией',
