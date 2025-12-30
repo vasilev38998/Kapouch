@@ -694,7 +694,7 @@ if ($page === 'integrations') {
     foreach ($cafes as $cafe) {
         echo "<option value=\"" . e((string)$cafe['id']) . "\">" . e($cafe['name']) . "</option>";
     }
-    echo "</select><button class=\"btn btn-primary\" type=\"submit\">Запустить синхронизацию</button></form><div class=\"muted\">После запуска данные появятся в продажах.</div></div>";
+    echo "</select><label>Период с</label><input type=\"date\" name=\"from_date\" value=\"" . e(date('Y-m-d', strtotime('-7 days'))) . "\"><label>по</label><input type=\"date\" name=\"to_date\" value=\"" . e(date('Y-m-d')) . "\"><button class=\"btn btn-primary\" type=\"submit\">Запустить синхронизацию</button></form><div class=\"muted\">После запуска данные появятся в продажах.</div></div>";
     echo "<div class=\"card\"><h3>Загрузка CSV из почты</h3><form method=\"post\" action=\"/api.php?action=upload_email_import\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Файл CSV</label><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить</button></form><div class=\"muted\">Файл будет добавлен в очередь обработки.</div></div></div>";
     echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Последние синхронизации AQSI</h3>";
     if ($logs) {

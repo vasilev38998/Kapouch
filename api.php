@@ -495,8 +495,36 @@ if ($action === 'aqsi_sync') {
         db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', 'Не заполнены данные AQSI']);
         redirect_with_message('/index.php?page=integrations', 'Заполните логин, токен и ID точки AQSI.', 'warning');
     }
-    db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'success', 'Синхронизация запланирована.']);
-    redirect_with_message('/index.php?page=integrations', 'Синхронизация AQSI запланирована.');
+    $config = require __DIR__ . '/config.php';
+    $from = $_POST['from_date'] ?? date('Y-m-d', strtotime('-7 days'));
+    $to = $_POST['to_date'] ?? date('Y-m-d');
+    $sales = aqsi_fetch_sales($integration['aqsi_shop'], $integration['aqsi_token'], $from, $to, $config);
+    if (!$sales['success']) {
+        db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', $sales['message']]);
+        redirect_with_message('/index.php?page=integrations', 'Ошибка синхронизации AQSI: ' . $sales['message'], 'warning');
+    }
+    $imported = 0;
+    foreach ($sales['items'] as $row) {
+        $name = trim($row['name'] ?? '');
+        $qty = (float)($row['qty'] ?? 0);
+        $total = (float)($row['total'] ?? 0);
+        $sold_at = $row['date'] ?? date('Y-m-d');
+        if ($name === '' || $qty <= 0 || $total <= 0) {
+            continue;
+        }
+        $stmt = db()->prepare('SELECT id FROM recipes WHERE cafe_id = ? AND name = ?');
+        $stmt->execute([$cafe_id, $name]);
+        $recipe = $stmt->fetch();
+        if (!$recipe) {
+            continue;
+        }
+        $cost_total = calculate_recipe_cost((int)$recipe['id']) * $qty;
+        $stmt = db()->prepare('INSERT INTO sales (cafe_id, recipe_id, qty, price_total, cost_total, sold_at) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$cafe_id, $recipe['id'], $qty, $total, $cost_total, $sold_at]);
+        $imported++;
+    }
+    db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'success', 'Импортировано продаж: ' . $imported]);
+    redirect_with_message('/index.php?page=integrations', 'Синхронизация завершена. Импортировано: ' . $imported);
 }
 
 if ($action === 'upload_email_import') {
@@ -513,6 +541,41 @@ if ($action === 'upload_email_import') {
     }
     db()->prepare('INSERT INTO email_imports (cafe_id, filename, status) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, $filename, 'received']);
     redirect_with_message('/index.php?page=integrations', 'Файл принят и будет обработан.');
+}
+
+function aqsi_fetch_sales(string $shop_id, string $token, string $from, string $to, array $config): array {
+    $base = rtrim($config['aqsi']['base_url'], '/');
+    $url = "{$base}/api/v2/shops/{$shop_id}/sales?from={$from}&to={$to}";
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $token,
+            'Accept: application/json',
+        ],
+        CURLOPT_TIMEOUT => (int)$config['aqsi']['timeout'],
+    ]);
+    $response = curl_exec($ch);
+    if ($response === false) {
+        return ['success' => false, 'message' => curl_error($ch), 'items' => []];
+    }
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($status < 200 || $status >= 300) {
+        return ['success' => false, 'message' => 'Ответ AQSI: HTTP ' . $status, 'items' => []];
+    }
+    $payload = json_decode($response, true) ?: [];
+    $items = [];
+    $rows = $payload['items'] ?? $payload['data'] ?? [];
+    foreach ($rows as $row) {
+        $items[] = [
+            'name' => $row['name'] ?? $row['item_name'] ?? '',
+            'qty' => $row['quantity'] ?? $row['qty'] ?? 0,
+            'total' => isset($row['total']) ? $row['total'] : ($row['amount'] ?? 0),
+            'date' => isset($row['date']) ? substr($row['date'], 0, 10) : date('Y-m-d'),
+        ];
+    }
+    return ['success' => true, 'message' => 'OK', 'items' => $items];
 }
 
 if ($action === 'init_payment') {

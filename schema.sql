@@ -304,3 +304,21 @@ INSERT INTO cafes (id, user_id, name, city, created_at) VALUES
 
 INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status) VALUES
 (1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'active');
+
+INSERT INTO ingredients (id, cafe_id, name, unit, cost_per_unit, stock_qty, created_at) VALUES
+(1, 1, 'Эспрессо зерно', 'г', 1.80, 5000, NOW()),
+(2, 1, 'Молоко', 'мл', 0.12, 20000, NOW()),
+(3, 1, 'Сахар', 'г', 0.20, 3000, NOW());
+
+INSERT INTO recipes (id, cafe_id, name, price, created_at) VALUES
+(1, 1, 'Эспрессо', 190.00, NOW()),
+(2, 1, 'Капучино', 260.00, NOW()),
+(3, 1, 'Латте', 290.00, NOW());
+
+INSERT INTO recipe_items (recipe_id, ingredient_id, qty) VALUES
+(1, 1, 18),
+(2, 1, 18),
+(2, 2, 150),
+(3, 1, 18),
+(3, 2, 200),
+(3, 3, 5);

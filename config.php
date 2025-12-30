@@ -29,6 +29,10 @@ return [
         'taxation' => 'usn_income',
         'vat' => 'none',
     ],
+    'aqsi' => [
+        'base_url' => 'https://api.aqsi.ru',
+        'timeout' => 20,
+    ],
     'fiscalization' => [
         'enabled' => true,
         'provider' => 'tinkoff',
