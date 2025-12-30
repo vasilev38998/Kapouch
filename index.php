@@ -105,12 +105,13 @@ function app_nav(string $current, int $cafe_id = 0): void {
         echo "</div></div>";
     }
     echo "</div><div class=\"sidebar-footer\"><a class=\"btn btn-ghost\" href=\"/api.php?action=logout\">Выйти</a></div></aside>";
+    $topbar_cafe = $cafe_id ? $cafe_id : resolve_cafe_id($user, null);
     echo "<div class=\"app-content\"><div class=\"topbar\"><div class=\"topbar-tabs\">";
     foreach ($top_tabs as $key => $data) {
         $active = $current === $key ? 'active' : '';
         echo "<a class=\"{$active}\" href=\"" . e($data[1]) . "\">" . e($data[0]) . "</a>";
     }
-    echo "</div><div class=\"topbar-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$cafe_id) . "\">Добавить продажу</a><a class=\"btn btn-ghost\" href=\"/index.php?page=expenses&cafe_id=" . e((string)$cafe_id) . "\">Добавить расход</a></div></div>";
+    echo "</div><div class=\"topbar-actions\"><a class=\"btn btn-primary\" href=\"/index.php?page=sales&cafe_id=" . e((string)$topbar_cafe) . "\">Добавить продажу</a><a class=\"btn btn-ghost\" href=\"/index.php?page=expenses&cafe_id=" . e((string)$topbar_cafe) . "\">Добавить расход</a></div></div>";
 }
 
 function guard_subscription(?array $subscription): void {

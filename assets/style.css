@@ -299,6 +299,10 @@ a {
     display: none;
 }
 
+.app-body .app-nav {
+    display: none;
+}
+
 .header-inner {
     display: flex;
     align-items: center;
