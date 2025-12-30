@@ -177,6 +177,19 @@ a {
     z-index: 0;
 }
 
+.app-body .card {
+    box-shadow: 0 12px 24px rgba(27, 26, 23, 0.08);
+}
+
+.app-body .pricing-card {
+    border: 1px solid rgba(230, 224, 212, 0.9);
+}
+
+.app-body .page-head {
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(230, 224, 212, 0.6);
+}
+
 .hero::after {
     content: "";
     position: absolute;

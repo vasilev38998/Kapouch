@@ -44,6 +44,7 @@ function app_nav(string $current, int $cafe_id = 0): void {
     $groups = [
         'Операции' => [
             'dashboard' => ['Рабочий стол', '/index.php?page=dashboard'],
+            'calendar' => ['Календарь', $cafe_id ? "/index.php?page=calendar&cafe_id={$cafe_id}" : '/index.php?page=calendar'],
             'sales' => ['Продажи', $cafe_id ? "/index.php?page=sales&cafe_id={$cafe_id}" : '/index.php?page=sales'],
             'expenses' => ['Расходы', $cafe_id ? "/index.php?page=expenses&cafe_id={$cafe_id}" : '/index.php?page=expenses'],
             'cash_shifts' => ['Смены', $cafe_id ? "/index.php?page=cash_shifts&cafe_id={$cafe_id}" : '/index.php?page=cash_shifts'],
@@ -120,13 +121,34 @@ if ($page === 'home') {
     echo "</div></div></section>";
     echo "<section class=\"section\"><div class=\"container\"><div class=\"section-head\"><div><h2>Тарифы без автопродления</h2><p class=\"muted\">Вы оплачиваете только нужный период. Доступ активируется после оплаты и чека.</p></div><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Запустить сейчас</a></div><div class=\"grid grid-3 pricing\">";
     $plans = db()->query('SELECT * FROM plans WHERE active = 1 ORDER BY price')->fetchAll();
+    $feature_labels = [
+        'pnl_full' => 'Полный P&L с детализацией',
+        'analytics_periods' => 'Аналитика по периодам',
+        'comparisons' => 'Сравнение периодов',
+        'breakeven' => 'Точка безубыточности',
+        'unit_economics' => 'Unit-экономика напитков',
+        'kpi' => 'KPI и цели',
+        'alerts' => 'Автоматические предупреждения',
+        'smart_calendar' => 'Умный календарь бизнеса',
+        'smart_reminders' => 'Напоминания и контроль сроков',
+        'daily_focus' => 'Ежедневный фокус владельца',
+        'export' => 'Экспорт отчётов',
+        'recommendations' => 'Умные рекомендации',
+        'what_if' => 'Сценарии «А если»',
+        'advanced_analytics' => 'Расширенная аналитика',
+    ];
     foreach ($plans as $plan) {
         $features = json_decode($plan['features_json'], true);
         echo "<div class=\"card pricing-card\"><div class=\"pricing-head\"><h3>" . e($plan['name']) . "</h3><div class=\"price\">" . format_money($plan['price']) . " ₽ / " . e((string)$plan['duration_days']) . " дней</div></div><ul class=\"pricing-list\">";
         echo "<li>Кофеен: до " . e((string)$plan['max_cafes']) . "</li>";
-        echo "<li>" . ($features['pnl_full'] ? 'Полный P&L' : 'Базовый P&L') . "</li>";
+        echo "<li>Ингредиенты и рецепты</li>";
+        echo "<li>Продажи и расходы</li>";
         echo "<li>Импорт CSV: " . ($features['import_limit'] >= 100000 ? 'без ограничений' : 'до ' . $features['import_limit'] . ' строк') . "</li>";
-        echo "<li>Экспорт: " . ($features['export'] ? 'доступен' : 'нет') . "</li>";
+        foreach ($feature_labels as $key => $label) {
+            if (!empty($features[$key])) {
+                echo "<li>" . e($label) . "</li>";
+            }
+        }
         echo "</ul><a class=\"btn btn-primary\" href=\"/index.php?page=register\">Начать</a></div>";
     }
     echo "</div></div></section>";
@@ -170,13 +192,35 @@ if ($page === 'reset_confirm') {
 
 if ($page === 'plans') {
     $plans = db()->query('SELECT * FROM plans WHERE active = 1 ORDER BY price')->fetchAll();
+    $feature_labels = [
+        'pnl_full' => 'Полный P&L с детализацией',
+        'analytics_periods' => 'Аналитика по периодам',
+        'comparisons' => 'Сравнение периодов',
+        'breakeven' => 'Точка безубыточности',
+        'unit_economics' => 'Unit-экономика напитков',
+        'kpi' => 'KPI и цели',
+        'alerts' => 'Автоматические предупреждения',
+        'smart_calendar' => 'Умный календарь бизнеса',
+        'smart_reminders' => 'Напоминания и контроль сроков',
+        'daily_focus' => 'Ежедневный фокус владельца',
+        'export' => 'Экспорт отчётов',
+        'recommendations' => 'Умные рекомендации',
+        'what_if' => 'Сценарии «А если»',
+        'advanced_analytics' => 'Расширенная аналитика',
+    ];
     echo "<main class=\"container section\"><h2>Тарифы</h2><div class=\"grid grid-3 pricing\">";
     foreach ($plans as $plan) {
         $features = json_decode($plan['features_json'], true);
         echo "<div class=\"card pricing-card\"><h3>" . e($plan['name']) . "</h3><div class=\"price\">" . format_money($plan['price']) . " ₽ / " . e((string)$plan['duration_days']) . " дней</div><ul class=\"pricing-list\">";
         echo "<li>Кофеен: до " . e((string)$plan['max_cafes']) . "</li>";
-        echo "<li>P&L: " . ($features['pnl_full'] ? 'полный' : 'упрощённый') . "</li>";
-        echo "<li>CSV импорт: " . ($features['import_limit'] >= 100000 ? 'без ограничений' : 'до ' . $features['import_limit'] . ' строк') . "</li>";
+        echo "<li>Ингредиенты и рецепты</li>";
+        echo "<li>Продажи и расходы</li>";
+        echo "<li>Импорт CSV: " . ($features['import_limit'] >= 100000 ? 'без ограничений' : 'до ' . $features['import_limit'] . ' строк') . "</li>";
+        foreach ($feature_labels as $key => $label) {
+            if (!empty($features[$key])) {
+                echo "<li>" . e($label) . "</li>";
+            }
+        }
         echo "</ul>";
         if ($user) {
             echo "<form method=\"post\" action=\"/api.php?action=init_payment\"><input type=\"hidden\" name=\"plan_id\" value=\"" . e((string)$plan['id']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Оплатить</button></form>";
@@ -284,6 +328,33 @@ if ($page === 'dashboard') {
         } else {
             echo "<div class=\"card\"><h3>Автоматические предупреждения</h3><div class=\"muted\">Критичных отклонений не обнаружено.</div></div>";
         }
+    }
+
+    if (feature_enabled($subscription, 'daily_focus')) {
+        $focus = [];
+        $stmt = db()->prepare('SELECT r.name, COALESCE(SUM(s.price_total - s.cost_total),0) AS profit FROM recipes r LEFT JOIN sales s ON s.recipe_id = r.id WHERE r.cafe_id = ? GROUP BY r.id ORDER BY profit DESC LIMIT 1');
+        $stmt->execute([$selected_cafe]);
+        $top = $stmt->fetch();
+        if ($top) {
+            $focus[] = 'Фокус недели: продвигайте ' . $top['name'] . ' (лучший вклад в прибыль).';
+        }
+        $stmt = db()->prepare('SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE cafe_id = ? GROUP BY category ORDER BY total DESC LIMIT 1');
+        $stmt->execute([$selected_cafe]);
+        $exp = $stmt->fetch();
+        if ($exp) {
+            $focus[] = 'Самая крупная статья расходов: ' . $exp['category'] . '.';
+        }
+        echo "<div class=\"card\"><h3>Ежедневный фокус</h3>";
+        if ($focus) {
+            echo "<ul class=\"data-list\">";
+            foreach ($focus as $item) {
+                echo "<li>" . e($item) . "</li>";
+            }
+            echo "</ul>";
+        } else {
+            echo "<div class=\"muted\">Нет данных для фокуса. Добавьте продажи и расходы.</div>";
+        }
+        echo "</div>";
     }
 
     echo "<div class=\"grid grid-2\">";
@@ -714,6 +785,80 @@ if ($page === 'imports') {
     }
     echo "</select><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-primary\" type=\"submit\">Импортировать</button></form></div><div class=\"card\"><h3>Подсказки по формату</h3><ul class=\"data-list\"><li>Разделитель — точка с запятой</li><li>Дата в формате YYYY-MM-DD</li><li>Имена напитков должны совпадать с рецептами</li><li>Расходы могут содержать комментарии</li></ul></div></div>";
     echo "</main>";
+    page_footer();
+    exit;
+}
+
+if ($page === 'calendar') {
+    $subscription = require_subscription($user);
+    if (!feature_enabled($subscription, 'smart_calendar')) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Умный календарь доступен на тарифах Pro и Maxi.</div></main>";
+        page_footer();
+        exit;
+    }
+    $cafe_id = resolve_cafe_id($user, isset($_GET['cafe_id']) ? (int)$_GET['cafe_id'] : null);
+    $cafe_stmt = db()->prepare('SELECT * FROM cafes WHERE id = ? AND user_id = ?');
+    $cafe_stmt->execute([$cafe_id, $user['id']]);
+    $cafe = $cafe_stmt->fetch();
+    if (!$cafe) {
+        echo "<main class=\"container section\"><div class=\"alert warning\">Кофейня не найдена.</div></main>";
+        page_footer();
+        exit;
+    }
+    $events_stmt = db()->prepare('SELECT * FROM calendar_events WHERE cafe_id = ? AND due_date >= CURDATE() ORDER BY due_date ASC LIMIT 30');
+    $events_stmt->execute([$cafe_id]);
+    $events = $events_stmt->fetchAll();
+    $reminders = [];
+    $today = new DateTime();
+    $in_five = (clone $today)->modify('+5 days')->format('Y-m-d');
+    foreach ($events as $event) {
+        if ($event['due_date'] <= $in_five) {
+            $reminders[] = "Через несколько дней " . mb_strtolower($event['title']) . " (" . date('d.m', strtotime($event['due_date'])) . ").";
+        }
+    }
+    $month_stmt = db()->prepare('SELECT DATE_FORMAT(expense_date, \"%Y-%m\") AS month, SUM(amount) AS total FROM expenses WHERE cafe_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 4 MONTH) GROUP BY month ORDER BY month DESC');
+    $month_stmt->execute([$cafe_id]);
+    $months = $month_stmt->fetchAll();
+    $current_month = $months[0]['total'] ?? 0;
+    $previous = array_slice($months, 1);
+    $avg = 0;
+    if ($previous) {
+        $avg = array_sum(array_column($previous, 'total')) / count($previous);
+    }
+    if ($avg > 0 && $current_month > $avg * 1.15) {
+        $reminders[] = 'В этом месяце расходы выше нормы на ' . number_format((($current_month / $avg) - 1) * 100, 0) . '%.';
+    }
+    $subscription = active_subscription((int)$user['id']);
+    if ($subscription && strtotime($subscription['ends_at']) <= strtotime('+5 days')) {
+        $reminders[] = 'Доступ заканчивается ' . date('d.m', strtotime($subscription['ends_at'])) . '. Продлите тариф заранее.';
+    }
+    app_nav('calendar', $cafe_id);
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Умный календарь — " . e($cafe['name']) . "</h2><div class=\"muted\">Платежи, аренда, зарплаты и налоги в одном месте</div></div><a class=\"btn btn-primary\" href=\"#add-event\">Добавить событие</a></div>";
+    if (feature_enabled($subscription, 'smart_reminders')) {
+        echo "<div class=\"card\"><h3>Напоминания</h3>";
+        if ($reminders) {
+            echo "<ul class=\"data-list\">";
+            foreach ($reminders as $reminder) {
+                echo "<li>" . e($reminder) . "</li>";
+            }
+            echo "</ul>";
+        } else {
+            echo "<div class=\"muted\">Пока нет новых напоминаний.</div>";
+        }
+        echo "</div>";
+    }
+    echo "<div class=\"card\" id=\"add-event\"><form method=\"post\" action=\"/api.php?action=add_calendar_event\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Тип</label><select name=\"event_type\"><option value=\"rent\">Аренда</option><option value=\"salary\">Зарплата</option><option value=\"tax\">Налоги</option><option value=\"payment\">Платеж</option><option value=\"custom\">Другое</option></select></div><div><label>Название</label><input name=\"title\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\"></div><div><label>Дата</label><input name=\"due_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form></div>";
+    echo "<div class=\"card\"><h3>Ближайшие события</h3>";
+    if ($events) {
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Тип</th><th>Название</th><th>Сумма</th></tr></thead><tbody>";
+        foreach ($events as $event) {
+            echo "<tr><td>" . e(date('d.m.Y', strtotime($event['due_date']))) . "</td><td>" . e($event['event_type']) . "</td><td>" . e($event['title']) . "</td><td>" . ($event['amount'] ? format_money($event['amount']) . ' ₽' : '—') . "</td></tr>";
+        }
+        echo "</tbody></table>";
+    } else {
+        echo "<div class=\"empty-state\">Добавьте события, чтобы календарь начал работать.</div>";
+    }
+    echo "</div></main>";
     page_footer();
     exit;
 }

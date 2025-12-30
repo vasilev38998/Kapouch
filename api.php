@@ -541,6 +541,19 @@ if ($action === 'upload_email_import') {
     redirect_with_message('/index.php?page=imports', 'Файл принят и будет обработан.');
 }
 
+if ($action === 'add_calendar_event') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)$_POST['cafe_id'];
+    $event_type = $_POST['event_type'] ?? 'custom';
+    $title = trim($_POST['title'] ?? '');
+    $amount = $_POST['amount'] !== '' ? (float)$_POST['amount'] : null;
+    $due_date = $_POST['due_date'] ?? '';
+    $stmt = db()->prepare('INSERT INTO calendar_events (cafe_id, event_type, title, amount, due_date) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $event_type, $title, $amount, $due_date]);
+    redirect_with_message('/index.php?page=calendar&cafe_id=' . $cafe_id, 'Событие добавлено.');
+}
+
 if ($action === 'init_payment') {
     $user = require_auth();
     $plan_id = (int)$_POST['plan_id'];

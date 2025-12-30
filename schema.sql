@@ -157,6 +157,17 @@ CREATE TABLE kpi_targets (
     FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE calendar_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cafe_id INT NOT NULL,
+    event_type ENUM('rent','salary','tax','payment','custom') NOT NULL,
+    title VARCHAR(190) NOT NULL,
+    amount DECIMAL(12,2) DEFAULT NULL,
+    due_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cafe_id) REFERENCES cafes(id) ON DELETE CASCADE
+);
+
 CREATE TABLE cash_shifts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cafe_id INT NOT NULL,
@@ -241,6 +252,9 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'unit_economics', false,
     'kpi', false,
     'alerts', false,
+    'smart_calendar', false,
+    'smart_reminders', false,
+    'daily_focus', false,
     'export', false,
     'import_limit', 50,
     'recommendations', false,
@@ -256,6 +270,9 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'unit_economics', true,
     'kpi', true,
     'alerts', true,
+    'smart_calendar', true,
+    'smart_reminders', true,
+    'daily_focus', true,
     'export', true,
     'import_limit', 1000000,
     'recommendations', false,
@@ -271,6 +288,9 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'unit_economics', true,
     'kpi', true,
     'alerts', true,
+    'smart_calendar', true,
+    'smart_reminders', true,
+    'daily_focus', true,
     'export', true,
     'import_limit', 1000000,
     'recommendations', true,
@@ -325,3 +345,8 @@ INSERT INTO recipe_items (recipe_id, ingredient_id, qty) VALUES
 (3, 1, 18),
 (3, 2, 200),
 (3, 3, 5);
+
+INSERT INTO calendar_events (cafe_id, event_type, title, amount, due_date) VALUES
+(1, 'rent', 'Аренда помещения', 85000, DATE_ADD(CURDATE(), INTERVAL 5 DAY)),
+(1, 'salary', 'Зарплата бариста', 120000, DATE_ADD(CURDATE(), INTERVAL 10 DAY)),
+(1, 'tax', 'Налоги и взносы', 45000, DATE_ADD(CURDATE(), INTERVAL 15 DAY));
