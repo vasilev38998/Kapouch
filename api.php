@@ -507,7 +507,7 @@ if ($action === 'download_template') {
     $type = $_GET['type'] ?? '';
     $templates = [
         'sales' => ['напиток;кол-во;сумма;дата', 'Капучино;12;4200;2025-01-10'],
-        'expenses' => ['категория;сумма;дата', 'Аренда;85000;2025-01-05'],
+        'expenses' => ['категория;сумма;дата;комментарий', 'Аренда;85000;2025-01-05;Аренда за месяц'],
         'purchases' => ['ингредиент;кол-во;сумма;дата', 'Молоко;30;2100;2025-01-03'],
         'cash_shifts' => ['дата;открытие;закрытие;наличные_продажи', '2025-01-10;5000;12400;8900'],
     ];
@@ -550,6 +550,17 @@ if ($action === 'init_payment') {
     if (!$plan) {
         redirect_with_message('/index.php?page=plans', 'Тариф недоступен', 'warning');
     }
+    if ($plan['name'] === 'Trial') {
+        $trial_stmt = db()->prepare('SELECT COUNT(*) AS total FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.user_id = ? AND p.name = ?');
+        $trial_stmt->execute([$user['id'], 'Trial']);
+        $trial_used = (int)$trial_stmt->fetch()['total'] > 0;
+        $trial_payment = db()->prepare('SELECT COUNT(*) AS total FROM payments p JOIN plans pl ON pl.id = p.plan_id WHERE p.user_id = ? AND pl.name = ? AND p.status IN ("paid","pending")');
+        $trial_payment->execute([$user['id'], 'Trial']);
+        $trial_pending = (int)$trial_payment->fetch()['total'] > 0;
+        if ($trial_used || $trial_pending) {
+            redirect_with_message('/index.php?page=plans', 'Тариф Trial можно купить только один раз.', 'warning');
+        }
+    }
     $amount = (int)$plan['price'];
     $stmt = db()->prepare('INSERT INTO payments (user_id, plan_id, amount, status, provider) VALUES (?, ?, ?, "pending", "tinkoff")');
     $stmt->execute([$user['id'], $plan_id, $amount]);
@@ -578,12 +589,16 @@ if ($action === 'init_payment') {
     $token = tinkoff_token($payload, $config['tinkoff']['password']);
     $payload['Token'] = $token;
     $response = tinkoff_request('https://securepay.tinkoff.ru/v2/Init', $payload);
-    if (empty($response['PaymentURL'])) {
-        db()->prepare('UPDATE payments SET status = "failed", payload = ? WHERE id = ?')->execute([json_encode($response, JSON_UNESCAPED_UNICODE), $payment_id]);
-        redirect_with_message('/index.php?page=plans', 'Ошибка инициализации платежа. Проверьте настройки Тинькофф.', 'warning');
+    if (empty($response['data']['PaymentURL'])) {
+        $retry = tinkoff_request('https://securepay.tinkoff.ru/v2/Init', $payload);
+        $response = $retry['data']['PaymentURL'] ? $retry : $response;
     }
-    db()->prepare('UPDATE payments SET payment_id = ?, payload = ? WHERE id = ?')->execute([$response['PaymentId'] ?? null, json_encode($response, JSON_UNESCAPED_UNICODE), $payment_id]);
-    header('Location: ' . $response['PaymentURL']);
+    if (empty($response['data']['PaymentURL'])) {
+        db()->prepare('UPDATE payments SET status = "failed", payload = ? WHERE id = ?')->execute([json_encode($response, JSON_UNESCAPED_UNICODE), $payment_id]);
+        redirect_with_message('/index.php?page=plans', 'Ошибка инициализации платежа. Проверьте настройки Тинькофф или повторите позже.', 'warning');
+    }
+    db()->prepare('UPDATE payments SET payment_id = ?, payload = ? WHERE id = ?')->execute([$response['data']['PaymentId'] ?? null, json_encode($response, JSON_UNESCAPED_UNICODE), $payment_id]);
+    header('Location: ' . $response['data']['PaymentURL']);
     exit;
 }
 
@@ -657,18 +672,21 @@ if ($action === 'extend_subscription') {
     $stmt = db()->prepare('SELECT * FROM subscriptions WHERE id = ?');
     $stmt->execute([$subscription_id]);
     $sub = $stmt->fetch();
-    if ($sub) {
-        $new_end = (new DateTime($sub['ends_at']))->modify("+{$days} days")->format('Y-m-d H:i:s');
+    if ($sub && $days > 0) {
+        $current_end = new DateTime($sub['ends_at']);
+        $base = $current_end > new DateTime() ? $current_end : new DateTime();
+        $new_end = $base->modify("+{$days} days")->format('Y-m-d H:i:s');
         db()->prepare('UPDATE subscriptions SET ends_at = ?, status = \"active\" WHERE id = ?')->execute([$new_end, $subscription_id]);
+        redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Подписка продлена.');
     }
-    redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Подписка продлена.');
+    redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Не удалось продлить подписку.', 'warning');
 }
 
 if ($action === 'cancel_subscription') {
     $user = require_auth();
     require_admin($user);
     $subscription_id = (int)$_POST['subscription_id'];
-    db()->prepare('UPDATE subscriptions SET status = \"canceled\" WHERE id = ?')->execute([$subscription_id]);
+    db()->prepare('UPDATE subscriptions SET status = \"canceled\", ends_at = NOW() WHERE id = ?')->execute([$subscription_id]);
     redirect_with_message('/index.php?page=admin&tab=subscriptions', 'Доступ отключён.');
 }
 
@@ -727,10 +745,11 @@ function tinkoff_request(string $url, array $payload): array {
     ]);
     $response = curl_exec($ch);
     if ($response === false) {
-        return ['Error' => curl_error($ch)];
+        return ['status' => 0, 'data' => [], 'error' => curl_error($ch)];
     }
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return json_decode($response, true) ?: [];
+    return ['status' => $status, 'data' => json_decode($response, true) ?: [], 'raw' => $response];
 }
 
 http_response_code(404);

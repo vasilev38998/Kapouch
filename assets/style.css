@@ -164,6 +164,29 @@ a {
 
 .hero {
     padding: 84px 0 64px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(193, 164, 110, 0.25), transparent 60%),
+        radial-gradient(circle at 80% 10%, rgba(47, 59, 47, 0.12), transparent 50%);
+    z-index: 0;
+}
+
+.hero::after {
+    content: "";
+    position: absolute;
+    right: -120px;
+    top: -80px;
+    width: 320px;
+    height: 320px;
+    background: url("data:image/svg+xml,%3Csvg width='320' height='320' viewBox='0 0 320 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='160' cy='160' r='140' stroke='%23c1a46e' stroke-opacity='0.2' stroke-width='18'/%3E%3Ccircle cx='160' cy='160' r='100' stroke='%232f3b2f' stroke-opacity='0.18' stroke-width='14'/%3E%3C/svg%3E") no-repeat center/contain;
+    opacity: 0.6;
+    z-index: 0;
 }
 
 .hero-inner {
@@ -171,6 +194,8 @@ a {
     grid-template-columns: 1.1fr 0.9fr;
     gap: 36px;
     align-items: center;
+    position: relative;
+    z-index: 1;
 }
 
 .hero h1 {
@@ -231,6 +256,26 @@ a {
     border: 1px solid var(--border);
     display: grid;
     gap: 12px;
+}
+
+.chart-card {
+    display: grid;
+    gap: 12px;
+}
+
+.chart-title {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.chart {
+    width: 100%;
+    height: 70px;
+}
+
+.chart-foot {
+    font-size: 13px;
+    color: var(--muted);
 }
 
 .visual-header {
