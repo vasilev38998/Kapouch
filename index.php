@@ -9,7 +9,8 @@ $landing = get_setting('landing', []);
 
 function page_header(string $title, ?array $user): void {
     $app = (require __DIR__ . '/config.php')['app'];
-    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"></head><body>";
+    $body_class = $user ? 'app-body' : 'marketing-body';
+    echo "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" . e($title) . " | " . e($app['name']) . "</title><link rel=\"stylesheet\" href=\"/assets/style.css\"></head><body class=\"" . e($body_class) . "\">";
     echo "<header class=\"site-header\"><div class=\"container header-inner\"><a class=\"logo\" href=\"/\"><span class=\"logo-mark\">K</span>Kapouch</a>";
     echo "<nav class=\"nav\">";
     if ($user) {
