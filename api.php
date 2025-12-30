@@ -481,6 +481,7 @@ if ($action === 'update_integrations') {
     $current['aqsi_login'] = trim($_POST['aqsi_login'] ?? $current['aqsi_login'] ?? '');
     $current['aqsi_token'] = trim($_POST['aqsi_token'] ?? $current['aqsi_token'] ?? '');
     $current['aqsi_shop'] = trim($_POST['aqsi_shop'] ?? $current['aqsi_shop'] ?? '');
+    $current['aqsi_sales_path'] = trim($_POST['aqsi_sales_path'] ?? $current['aqsi_sales_path'] ?? '');
     $current['import_email'] = trim($_POST['import_email'] ?? $current['import_email'] ?? '');
     set_setting('integrations', $current);
     redirect_with_message('/index.php?page=integrations', 'Настройки интеграций сохранены.');
@@ -498,7 +499,7 @@ if ($action === 'aqsi_sync') {
     $config = require __DIR__ . '/config.php';
     $from = $_POST['from_date'] ?? date('Y-m-d', strtotime('-7 days'));
     $to = $_POST['to_date'] ?? date('Y-m-d');
-    $sales = aqsi_fetch_sales($integration['aqsi_shop'], $integration['aqsi_token'], $from, $to, $config);
+    $sales = aqsi_fetch_sales($integration['aqsi_shop'], $integration['aqsi_token'], $from, $to, $config, $integration['aqsi_sales_path'] ?? '');
     if (!$sales['success']) {
         db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', $sales['message']]);
         redirect_with_message('/index.php?page=integrations', 'Ошибка синхронизации AQSI: ' . $sales['message'], 'warning');
@@ -543,9 +544,11 @@ if ($action === 'upload_email_import') {
     redirect_with_message('/index.php?page=integrations', 'Файл принят и будет обработан.');
 }
 
-function aqsi_fetch_sales(string $shop_id, string $token, string $from, string $to, array $config): array {
+function aqsi_fetch_sales(string $shop_id, string $token, string $from, string $to, array $config, string $override_path = ''): array {
     $base = rtrim($config['aqsi']['base_url'], '/');
-    $url = "{$base}/api/v2/shops/{$shop_id}/sales?from={$from}&to={$to}";
+    $path = $override_path !== '' ? $override_path : ($config['aqsi']['sales_path'] ?? '/v4/shops/{shopId}/sales');
+    $path = str_replace('{shopId}', $shop_id, $path);
+    $url = "{$base}{$path}?from={$from}&to={$to}";
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -562,7 +565,7 @@ function aqsi_fetch_sales(string $shop_id, string $token, string $from, string $
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($status < 200 || $status >= 300) {
-        return ['success' => false, 'message' => 'Ответ AQSI: HTTP ' . $status, 'items' => []];
+        return ['success' => false, 'message' => 'Ответ AQSI: HTTP ' . $status . ' (' . $url . ')', 'items' => []];
     }
     $payload = json_decode($response, true) ?: [];
     $items = [];

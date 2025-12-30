@@ -30,7 +30,8 @@ return [
         'vat' => 'none',
     ],
     'aqsi' => [
-        'base_url' => 'https://api.aqsi.ru',
+        'base_url' => 'https://api.aqsi.ru/pub',
+        'sales_path' => '/v4/shops/{shopId}/sales',
         'timeout' => 20,
     ],
     'fiscalization' => [
