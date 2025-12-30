@@ -126,6 +126,7 @@ CREATE TABLE expenses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cafe_id INT NOT NULL,
     category VARCHAR(120) NOT NULL,
+    comment VARCHAR(255) DEFAULT NULL,
     amount DECIMAL(12,2) NOT NULL,
     expense_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -277,6 +278,7 @@ INSERT INTO plans (name, price, duration_days, max_cafes, features_json, active)
     'advanced_analytics', true
 ), 1);
 
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('landing', JSON_OBJECT(
     'hero_title', 'Финансовая система для владельцев кофеен',
@@ -294,7 +296,8 @@ INSERT INTO settings (setting_key, setting_value) VALUES
         JSON_OBJECT('name','Илья, владелец кофейни в Москве','text','Вижу P&L и маржу по каждому напитку. Решения принимаю быстрее.'),
         JSON_OBJECT('name','Мария, кофейня в Екатеринбурге','text','Сервис полностью заменил Excel и дал прозрачную аналитику.')
     )
-));
+)),
+('expense_categories', JSON_ARRAY('Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее'));
 
 INSERT INTO users (id, email, password_hash, role, created_at) VALUES
 (1, 'demo@kapouch.ru', '$2y$12$wYyuUvHIE0H2HwLgYwIXt.vhXr.IWLrkDIJ.qvoTh8L6Mvd37EE1.', 'owner', NOW());

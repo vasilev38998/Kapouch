@@ -61,7 +61,7 @@ function app_nav(string $current, int $cafe_id = 0): void {
             'benchmarks' => ['Бенчмарки', '/index.php?page=benchmarks'],
         ],
         'Сервис' => [
-            'integrations' => ['Интеграции', '/index.php?page=integrations'],
+            'imports' => ['Импорт', '/index.php?page=imports'],
             'health' => ['Здоровье бизнеса', '/index.php?page=health'],
             'payments' => ['Платежи', '/index.php?page=payments'],
             'cafes' => ['Кофейни', '/index.php?page=cafes'],
@@ -501,14 +501,19 @@ if ($page === 'expenses') {
     $expenses = $expenses->fetchAll();
     app_nav('expenses', $cafe_id);
     echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Расходы — " . e($cafe['name']) . "</h2><div class=\"muted\">OPEX, аренда, зарплаты, маркетинг</div></div><a class=\"btn btn-primary\" href=\"#add-expense\">Добавить расход</a></div>";
-    echo "<div class=\"card\" id=\"add-expense\"><form method=\"post\" action=\"/api.php?action=add_expense\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Категория</label><input name=\"category\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\" required></div><div><label>Дата</label><input name=\"expense_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Добавить расход</button></div></form></div>";
+    $expense_categories = get_setting('expense_categories', ['Закупка', 'Аренда', 'Зарплата', 'Маркетинг', 'Коммунальные', 'Логистика', 'Оборудование', 'Прочее']);
+    echo "<div class=\"card\" id=\"add-expense\"><form method=\"post\" action=\"/api.php?action=add_expense\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Категория</label><select name=\"category\" required>";
+    foreach ($expense_categories as $category) {
+        echo "<option value=\"" . e($category) . "\">" . e($category) . "</option>";
+    }
+    echo "</select></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\" required></div><div><label>Дата</label><input name=\"expense_date\" type=\"date\" required></div><div><label>Комментарий</label><input name=\"comment\" placeholder=\"Например, аренда за месяц\"></div><div><button class=\"btn btn-primary\" type=\"submit\">Добавить расход</button></div></form></div>";
     echo "<div class=\"card\"><h3>CSV импорт расходов</h3><form method=\"post\" action=\"/api.php?action=import_expenses\" enctype=\"multipart/form-data\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить CSV</button></form><div class=\"muted\">Формат: категория;сумма;дата (YYYY-MM-DD)</div></div>";
 
     echo "<div class=\"card\"><h3>Последние расходы</h3>";
     if ($expenses) {
-        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Категория</th><th>Сумма</th></tr></thead><tbody>";
+        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th></tr></thead><tbody>";
         foreach ($expenses as $exp) {
-            echo "<tr><td>" . e(date('d.m.Y', strtotime($exp['expense_date']))) . "</td><td>" . e($exp['category']) . "</td><td>" . format_money($exp['amount']) . " ₽</td></tr>";
+            echo "<tr><td>" . e(date('d.m.Y', strtotime($exp['expense_date']))) . "</td><td>" . e($exp['category']) . "</td><td>" . e($exp['comment'] ?? '') . "</td><td>" . format_money($exp['amount']) . " ₽</td></tr>";
         }
         echo "</tbody></table>";
     } else {
@@ -675,51 +680,35 @@ if ($page === 'staff') {
     exit;
 }
 
-if ($page === 'integrations') {
-    app_nav('integrations');
-    $integration = get_setting('integrations', []);
-    $aqsi_login = $integration['aqsi_login'] ?? '';
-    $aqsi_token = $integration['aqsi_token'] ?? '';
-    $aqsi_shop = $integration['aqsi_shop'] ?? '';
-    $aqsi_sales_path = $integration['aqsi_sales_path'] ?? '';
-    $import_email = $integration['import_email'] ?? '';
+if ($page === 'imports') {
+    app_nav('imports');
     $cafes_stmt = db()->prepare('SELECT * FROM cafes WHERE user_id = ?');
     $cafes_stmt->execute([$user['id']]);
     $cafes = $cafes_stmt->fetchAll();
-    $logs = db()->query('SELECT * FROM aqsi_sync_logs ORDER BY created_at DESC LIMIT 10')->fetchAll();
-    $imports = db()->query('SELECT * FROM email_imports ORDER BY created_at DESC LIMIT 10')->fetchAll();
-    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Интеграции и импорт</h2><div class=\"muted\">Подключайте кассы и автоматизируйте загрузку данных</div></div></div>";
-    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>AQSI</h3><p class=\"muted\">Синхронизация продаж с кассами AQSI по API. Kapouch подтянет чеки и разложит по напиткам.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"grid grid-2\"><div><label>Логин AQSI</label><input name=\"aqsi_login\" value=\"" . e($aqsi_login) . "\"></div><div><label>API токен</label><input name=\"aqsi_token\" value=\"" . e($aqsi_token) . "\"></div><div class=\"grid-span-2\"><label>ID точки (Shop ID)</label><input name=\"aqsi_shop\" value=\"" . e($aqsi_shop) . "\"></div><div class=\"grid-span-2\"><label>Путь продаж API</label><input name=\"aqsi_sales_path\" placeholder=\"/v4/shops/{shopId}/sales\" value=\"" . e($aqsi_sales_path) . "\"></div><div class=\"grid-span-2\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form><div class=\"muted\">Подсказка: токен можно получить в личном кабинете AQSI → Интеграции.</div></div>";
-    echo "<div class=\"card\"><h3>Email‑импорт</h3><p class=\"muted\">Отправляйте CSV отчёты на единый адрес — Kapouch подготовит данные к импорту.</p><form method=\"post\" action=\"/api.php?action=update_integrations\" class=\"inline-form\"><label>Email для загрузок</label><input name=\"import_email\" value=\"" . e($import_email) . "\"><button class=\"btn btn-ghost\" type=\"submit\">Сохранить</button></form><div class=\"muted\">Мы поддерживаем CSV с разделителем ; и .</div></div></div>";
-    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Ручная синхронизация AQSI</h3><form method=\"post\" action=\"/api.php?action=aqsi_sync\" class=\"inline-form\"><label>Кофейня</label><select name=\"cafe_id\">";
+    $preview = !empty($_GET['preview']) ? ($_SESSION['import_preview']['rows'] ?? []) : [];
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Импорт данных</h2><div class=\"muted\">Понятные варианты загрузки продаж, расходов и закупок</div></div></div>";
+    echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Быстрый старт</h3><p class=\"muted\">Скачайте шаблоны и заполните в Excel или выгрузите из кассы.</p><div class=\"stack\"><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Шаблон продаж</a><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Шаблон расходов</a><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Шаблон закупок</a></div></div><div class=\"card\"><h3>Импорт продаж (с проверкой)</h3><p class=\"muted\">Сначала просмотрим первые строки, затем подтвердим.</p><form method=\"post\" action=\"/api.php?action=import_sales_preview\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Кофейня</label><select name=\"cafe_id\">";
     foreach ($cafes as $cafe) {
         echo "<option value=\"" . e((string)$cafe['id']) . "\">" . e($cafe['name']) . "</option>";
     }
-    echo "</select><label>Период с</label><input type=\"date\" name=\"from_date\" value=\"" . e(date('Y-m-d', strtotime('-7 days'))) . "\"><label>по</label><input type=\"date\" name=\"to_date\" value=\"" . e(date('Y-m-d')) . "\"><button class=\"btn btn-primary\" type=\"submit\">Запустить синхронизацию</button></form><div class=\"muted\">После запуска данные появятся в продажах.</div></div>";
-    echo "<div class=\"card\"><h3>Загрузка CSV из почты</h3><form method=\"post\" action=\"/api.php?action=upload_email_import\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Файл CSV</label><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить</button></form><div class=\"muted\">Файл будет добавлен в очередь обработки.</div></div></div>";
-    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Последние синхронизации AQSI</h3>";
-    if ($logs) {
-        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Статус</th><th>Сообщение</th></tr></thead><tbody>";
-        foreach ($logs as $log) {
-            echo "<tr><td>" . e(date('d.m.Y H:i', strtotime($log['created_at']))) . "</td><td>" . e($log['status']) . "</td><td>" . e($log['message']) . "</td></tr>";
+    echo "</select><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-primary\" type=\"submit\">Проверить</button></form>";
+    if ($preview) {
+        echo "<div class=\"muted\">Предпросмотр (до 10 строк):</div><table class=\"table\"><thead><tr><th>Напиток</th><th>Кол-во</th><th>Сумма</th><th>Дата</th></tr></thead><tbody>";
+        foreach (array_slice($preview, 0, 10) as $row) {
+            echo "<tr><td>" . e($row[0] ?? '') . "</td><td>" . e($row[1] ?? '') . "</td><td>" . e($row[2] ?? '') . "</td><td>" . e($row[3] ?? '') . "</td></tr>";
         }
-        echo "</tbody></table>";
-    } else {
-        echo "<div class=\"empty-state\">Синхронизаций пока нет.</div>";
+        echo "</tbody></table><form method=\"post\" action=\"/api.php?action=confirm_sales_import\"><button class=\"btn btn-primary\" type=\"submit\">Подтвердить импорт</button></form>";
     }
-    echo "</div>";
-    echo "<div class=\"card\"><h3>Email‑импорт: очередь</h3>";
-    if ($imports) {
-        echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Файл</th><th>Статус</th></tr></thead><tbody>";
-        foreach ($imports as $import) {
-            echo "<tr><td>" . e(date('d.m.Y H:i', strtotime($import['created_at']))) . "</td><td>" . e($import['filename']) . "</td><td>" . e($import['status']) . "</td></tr>";
-        }
-        echo "</tbody></table>";
-    } else {
-        echo "<div class=\"empty-state\">Очередь пуста.</div>";
+    echo "</div><div class=\"card\"><h3>Импорт расходов</h3><p class=\"muted\">Поддерживает категории, суммы, даты и комментарии.</p><form method=\"post\" action=\"/api.php?action=import_expenses\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Кофейня</label><select name=\"cafe_id\">";
+    foreach ($cafes as $cafe) {
+        echo "<option value=\"" . e((string)$cafe['id']) . "\">" . e($cafe['name']) . "</option>";
     }
-    echo "</div></div>";
-    echo "<div class=\"grid grid-3\"><div class=\"card\"><h3>Шаблон продаж</h3><p class=\"muted\">Используйте шаблон, чтобы загрузить продажи из кассы.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=sales\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон расходов</h3><p class=\"muted\">Формат для загрузки аренды, зарплаты, маркетинга.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=expenses\">Скачать шаблон</a></div><div class=\"card\"><h3>Шаблон закупок</h3><p class=\"muted\">Импорт закупок ингредиентов и цен.</p><a class=\"btn btn-ghost\" href=\"/api.php?action=download_template&type=purchases\">Скачать шаблон</a></div></div>";
+    echo "</select><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-primary\" type=\"submit\">Импортировать</button></form></div></div>";
+    echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Импорт закупок</h3><p class=\"muted\">Обновляйте себестоимость и остатки ингредиентов.</p><form method=\"post\" action=\"/api.php?action=import_purchases\" enctype=\"multipart/form-data\" class=\"inline-form\"><label>Кофейня</label><select name=\"cafe_id\">";
+    foreach ($cafes as $cafe) {
+        echo "<option value=\"" . e((string)$cafe['id']) . "\">" . e($cafe['name']) . "</option>";
+    }
+    echo "</select><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-primary\" type=\"submit\">Импортировать</button></form></div><div class=\"card\"><h3>Подсказки по формату</h3><ul class=\"data-list\"><li>Разделитель — точка с запятой</li><li>Дата в формате YYYY-MM-DD</li><li>Имена напитков должны совпадать с рецептами</li><li>Расходы могут содержать комментарии</li></ul></div></div>";
     echo "</main>";
     page_footer();
     exit;
@@ -877,12 +866,26 @@ if ($page === 'analytics') {
     if ($avg_contribution > 0) {
         $breakeven = $exp['expenses'] / $avg_contribution;
     }
+    $stmt = db()->prepare('SELECT expense_date, COALESCE(SUM(amount),0) AS total FROM expenses WHERE cafe_id = ? AND expense_date >= ? GROUP BY expense_date ORDER BY expense_date DESC LIMIT 7');
+    $stmt->execute([$cafe_id, $start]);
+    $expense_series = $stmt->fetchAll();
     echo "<main class=\"container section\"><div class=\"page-head\"><h2>Аналитика — " . e($cafe['name']) . "</h2><form method=\"get\" class=\"inline-form\"><input type=\"hidden\" name=\"page\" value=\"analytics\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div class=\"period-selector\"><label>Период</label><select name=\"period\"><option value=\"month\" " . ($period === 'month' ? 'selected' : '') . ">Месяц</option><option value=\"week\" " . ($period === 'week' ? 'selected' : '') . ">Неделя</option><option value=\"day\" " . ($period === 'day' ? 'selected' : '') . ">День</option></select></div><button class=\"btn btn-ghost\" type=\"submit\">Применить</button></form></div>";
     if (feature_enabled($subscription, 'export')) {
         echo "<div class=\"card\"><h3>Экспорт отчётов</h3><a class=\"btn btn-ghost\" href=\"/api.php?action=export_pnl&cafe_id=" . e((string)$cafe_id) . "&period=" . e($period) . "\">Скачать P&L в CSV</a></div>";
     }
     echo "<div class=\"grid grid-3\"><div class=\"card metric\"><div class=\"metric-title\">Выручка</div><div class=\"metric-value\">" . format_money($sales['revenue']) . " ₽</div></div><div class=\"card metric\"><div class=\"metric-title\">Валовая прибыль</div><div class=\"metric-value\">" . format_money($gross_profit) . " ₽</div></div><div class=\"card metric\"><div class=\"metric-title\">Чистая прибыль</div><div class=\"metric-value\">" . format_money($net_profit) . " ₽</div></div></div>";
     echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Unit-экономика</h3><ul class=\"data-list\"><li>Средний вклад в покрытие <span>" . format_money($avg_contribution) . " ₽</span></li><li>Точка безубыточности <span>" . number_format($breakeven, 0, ',', ' ') . " напитков</span></li></ul></div>";
+    echo "<div class=\"card\"><h3>Динамика расходов (7 дней)</h3>";
+    if ($expense_series) {
+        echo "<ul class=\"data-list\">";
+        foreach ($expense_series as $row) {
+            echo "<li>" . e(date('d.m', strtotime($row['expense_date']))) . " <span>" . format_money($row['total']) . " ₽</span></li>";
+        }
+        echo "</ul>";
+    } else {
+        echo "<div class=\"muted\">Пока нет данных по расходам.</div>";
+    }
+    echo "</div>";
     if (feature_enabled($subscription, 'unit_economics')) {
         $profit_stmt = db()->prepare('SELECT r.name, COALESCE(SUM(s.price_total - s.cost_total),0) AS profit FROM recipes r LEFT JOIN sales s ON s.recipe_id = r.id WHERE r.cafe_id = ? GROUP BY r.id ORDER BY profit DESC LIMIT 5');
         $profit_stmt->execute([$cafe_id]);

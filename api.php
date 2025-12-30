@@ -333,6 +333,53 @@ if ($action === 'import_sales') {
     redirect_with_message('/index.php?page=sales&cafe_id=' . $cafe_id, 'CSV импорт завершён.');
 }
 
+if ($action === 'import_sales_preview') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)($_POST['cafe_id'] ?? 0);
+    if (empty($_FILES['csv_file']['tmp_name'])) {
+        redirect_with_message('/index.php?page=imports', 'CSV файл не загружен', 'warning');
+    }
+    $rows = import_csv_rows($_FILES['csv_file']['tmp_name']);
+    $limit = (int)($subscription['features']['import_limit'] ?? 0);
+    if ($limit > 0 && count($rows) > $limit) {
+        redirect_with_message('/index.php?page=imports', 'Превышен лимит строк CSV для вашего тарифа', 'warning');
+    }
+    $_SESSION['import_preview'] = [
+        'cafe_id' => $cafe_id,
+        'rows' => array_slice($rows, 0, 100),
+        'created_at' => time(),
+    ];
+    redirect_with_message('/index.php?page=imports&preview=1', 'Проверьте данные перед импортом.');
+}
+
+if ($action === 'confirm_sales_import') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $preview = $_SESSION['import_preview'] ?? null;
+    if (!$preview || empty($preview['rows'])) {
+        redirect_with_message('/index.php?page=imports', 'Нет данных для импорта', 'warning');
+    }
+    $cafe_id = (int)$preview['cafe_id'];
+    foreach ($preview['rows'] as $row) {
+        if (count($row) < 4) {
+            continue;
+        }
+        [$recipe_name, $qty, $price_total, $sold_at] = $row;
+        $stmt = db()->prepare('SELECT id FROM recipes WHERE cafe_id = ? AND name = ?');
+        $stmt->execute([$cafe_id, trim($recipe_name)]);
+        $recipe = $stmt->fetch();
+        if (!$recipe) {
+            continue;
+        }
+        $cost_total = calculate_recipe_cost((int)$recipe['id']) * (float)$qty;
+        $stmt = db()->prepare('INSERT INTO sales (cafe_id, recipe_id, qty, price_total, cost_total, sold_at) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$cafe_id, $recipe['id'], (float)$qty, (float)$price_total, $cost_total, $sold_at]);
+    }
+    unset($_SESSION['import_preview']);
+    redirect_with_message('/index.php?page=sales&cafe_id=' . $cafe_id, 'Импорт подтверждён.');
+}
+
 if ($action === 'add_expense') {
     $user = require_auth();
     $subscription = require_subscription($user);
@@ -340,8 +387,9 @@ if ($action === 'add_expense') {
     $category = trim($_POST['category']);
     $amount = (float)$_POST['amount'];
     $expense_date = $_POST['expense_date'];
-    $stmt = db()->prepare('INSERT INTO expenses (cafe_id, category, amount, expense_date) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$cafe_id, $category, $amount, $expense_date]);
+    $comment = trim($_POST['comment'] ?? '');
+    $stmt = db()->prepare('INSERT INTO expenses (cafe_id, category, comment, amount, expense_date) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$cafe_id, $category, $comment, $amount, $expense_date]);
     redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'Расход добавлен.');
 }
 
@@ -361,9 +409,12 @@ if ($action === 'import_expenses') {
         if (count($row) < 3) {
             continue;
         }
-        [$category, $amount, $expense_date] = $row;
-        $stmt = db()->prepare('INSERT INTO expenses (cafe_id, category, amount, expense_date) VALUES (?, ?, ?, ?)');
-        $stmt->execute([$cafe_id, trim($category), (float)$amount, $expense_date]);
+        $category = $row[0];
+        $amount = $row[1];
+        $expense_date = $row[2];
+        $comment = $row[3] ?? '';
+        $stmt = db()->prepare('INSERT INTO expenses (cafe_id, category, comment, amount, expense_date) VALUES (?, ?, ?, ?, ?)');
+        $stmt->execute([$cafe_id, trim($category), trim($comment), (float)$amount, $expense_date]);
     }
     redirect_with_message('/index.php?page=expenses&cafe_id=' . $cafe_id, 'CSV импорт расходов завершён.');
 }
@@ -474,111 +525,20 @@ if ($action === 'download_template') {
     exit;
 }
 
-if ($action === 'update_integrations') {
-    $user = require_auth();
-    $subscription = require_subscription($user);
-    $current = get_setting('integrations', []);
-    $current['aqsi_login'] = trim($_POST['aqsi_login'] ?? $current['aqsi_login'] ?? '');
-    $current['aqsi_token'] = trim($_POST['aqsi_token'] ?? $current['aqsi_token'] ?? '');
-    $current['aqsi_shop'] = trim($_POST['aqsi_shop'] ?? $current['aqsi_shop'] ?? '');
-    $current['aqsi_sales_path'] = trim($_POST['aqsi_sales_path'] ?? $current['aqsi_sales_path'] ?? '');
-    $current['import_email'] = trim($_POST['import_email'] ?? $current['import_email'] ?? '');
-    set_setting('integrations', $current);
-    redirect_with_message('/index.php?page=integrations', 'Настройки интеграций сохранены.');
-}
-
-if ($action === 'aqsi_sync') {
-    $user = require_auth();
-    $subscription = require_subscription($user);
-    $cafe_id = (int)($_POST['cafe_id'] ?? 0);
-    $integration = get_setting('integrations', []);
-    if (empty($integration['aqsi_token']) || empty($integration['aqsi_shop'])) {
-        db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', 'Не заполнены данные AQSI']);
-        redirect_with_message('/index.php?page=integrations', 'Заполните логин, токен и ID точки AQSI.', 'warning');
-    }
-    $config = require __DIR__ . '/config.php';
-    $from = $_POST['from_date'] ?? date('Y-m-d', strtotime('-7 days'));
-    $to = $_POST['to_date'] ?? date('Y-m-d');
-    $sales = aqsi_fetch_sales($integration['aqsi_shop'], $integration['aqsi_token'], $from, $to, $config, $integration['aqsi_sales_path'] ?? '');
-    if (!$sales['success']) {
-        db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'failed', $sales['message']]);
-        redirect_with_message('/index.php?page=integrations', 'Ошибка синхронизации AQSI: ' . $sales['message'], 'warning');
-    }
-    $imported = 0;
-    foreach ($sales['items'] as $row) {
-        $name = trim($row['name'] ?? '');
-        $qty = (float)($row['qty'] ?? 0);
-        $total = (float)($row['total'] ?? 0);
-        $sold_at = $row['date'] ?? date('Y-m-d');
-        if ($name === '' || $qty <= 0 || $total <= 0) {
-            continue;
-        }
-        $stmt = db()->prepare('SELECT id FROM recipes WHERE cafe_id = ? AND name = ?');
-        $stmt->execute([$cafe_id, $name]);
-        $recipe = $stmt->fetch();
-        if (!$recipe) {
-            continue;
-        }
-        $cost_total = calculate_recipe_cost((int)$recipe['id']) * $qty;
-        $stmt = db()->prepare('INSERT INTO sales (cafe_id, recipe_id, qty, price_total, cost_total, sold_at) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$cafe_id, $recipe['id'], $qty, $total, $cost_total, $sold_at]);
-        $imported++;
-    }
-    db()->prepare('INSERT INTO aqsi_sync_logs (cafe_id, status, message) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, 'success', 'Импортировано продаж: ' . $imported]);
-    redirect_with_message('/index.php?page=integrations', 'Синхронизация завершена. Импортировано: ' . $imported);
-}
-
 if ($action === 'upload_email_import') {
     $user = require_auth();
     $subscription = require_subscription($user);
     if (empty($_FILES['csv_file']['tmp_name'])) {
-        redirect_with_message('/index.php?page=integrations', 'Файл не загружен', 'warning');
+        redirect_with_message('/index.php?page=imports', 'Файл не загружен', 'warning');
     }
     $cafe_id = (int)($_POST['cafe_id'] ?? 0);
     $filename = 'email_import_' . date('Ymd_His') . '_' . basename($_FILES['csv_file']['name']);
     $target = __DIR__ . '/uploads/' . $filename;
     if (!move_uploaded_file($_FILES['csv_file']['tmp_name'], $target)) {
-        redirect_with_message('/index.php?page=integrations', 'Не удалось сохранить файл', 'warning');
+        redirect_with_message('/index.php?page=imports', 'Не удалось сохранить файл', 'warning');
     }
     db()->prepare('INSERT INTO email_imports (cafe_id, filename, status) VALUES (?, ?, ?)')->execute([$cafe_id ?: null, $filename, 'received']);
-    redirect_with_message('/index.php?page=integrations', 'Файл принят и будет обработан.');
-}
-
-function aqsi_fetch_sales(string $shop_id, string $token, string $from, string $to, array $config, string $override_path = ''): array {
-    $base = rtrim($config['aqsi']['base_url'], '/');
-    $path = $override_path !== '' ? $override_path : ($config['aqsi']['sales_path'] ?? '/v4/shops/{shopId}/sales');
-    $path = str_replace('{shopId}', $shop_id, $path);
-    $url = "{$base}{$path}?from={$from}&to={$to}";
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            'Authorization: Bearer ' . $token,
-            'Accept: application/json',
-        ],
-        CURLOPT_TIMEOUT => (int)$config['aqsi']['timeout'],
-    ]);
-    $response = curl_exec($ch);
-    if ($response === false) {
-        return ['success' => false, 'message' => curl_error($ch), 'items' => []];
-    }
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($status < 200 || $status >= 300) {
-        return ['success' => false, 'message' => 'Ответ AQSI: HTTP ' . $status . ' (' . $url . ')', 'items' => []];
-    }
-    $payload = json_decode($response, true) ?: [];
-    $items = [];
-    $rows = $payload['items'] ?? $payload['data'] ?? [];
-    foreach ($rows as $row) {
-        $items[] = [
-            'name' => $row['name'] ?? $row['item_name'] ?? '',
-            'qty' => $row['quantity'] ?? $row['qty'] ?? 0,
-            'total' => isset($row['total']) ? $row['total'] : ($row['amount'] ?? 0),
-            'date' => isset($row['date']) ? substr($row['date'], 0, 10) : date('Y-m-d'),
-        ];
-    }
-    return ['success' => true, 'message' => 'OK', 'items' => $items];
+    redirect_with_message('/index.php?page=imports', 'Файл принят и будет обработан.');
 }
 
 if ($action === 'init_payment') {

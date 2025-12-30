@@ -349,6 +349,10 @@ a {
     margin-top: 0;
 }
 
+.card h3 + .muted {
+    margin-top: -8px;
+}
+
 .pricing-card {
     display: flex;
     flex-direction: column;
@@ -394,6 +398,19 @@ a {
 .app-body .btn {
     padding: 8px 16px;
     font-weight: 600;
+}
+
+.app-body .btn-primary {
+    border: 1px solid rgba(27, 26, 23, 0.08);
+}
+
+.app-body .btn-ghost {
+    border: 1px solid rgba(27, 26, 23, 0.08);
+}
+
+.app-body input,
+.app-body select {
+    background: #fffdf9;
 }
 
 .app-body .btn-primary {
@@ -475,6 +492,12 @@ label {
 
 .page-actions {
     display: flex;
+    gap: 10px;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
