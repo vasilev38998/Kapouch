@@ -834,6 +834,12 @@ if ($page === 'calendar') {
     }
     app_nav('calendar', $cafe_id);
     echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Умный календарь — " . e($cafe['name']) . "</h2><div class=\"muted\">Платежи, аренда, зарплаты и налоги в одном месте</div></div><a class=\"btn btn-primary\" href=\"#add-event\">Добавить событие</a></div>";
+    echo "<div class=\"grid grid-3\"><div class=\"card metric\"><div class=\"metric-title\">Событий на 30 дней</div><div class=\"metric-value\">" . e((string)count($events)) . "</div></div>";
+    $sum_stmt = db()->prepare('SELECT COALESCE(SUM(amount),0) AS total FROM calendar_events WHERE cafe_id = ? AND due_date >= CURDATE() AND due_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)');
+    $sum_stmt->execute([$cafe_id]);
+    $sum_total = $sum_stmt->fetch()['total'];
+    echo "<div class=\"card metric\"><div class=\"metric-title\">Платежи на 30 дней</div><div class=\"metric-value\">" . format_money($sum_total) . " ₽</div></div>";
+    echo "<div class=\"card metric\"><div class=\"metric-title\">Ближайшее событие</div><div class=\"metric-value\">" . ($events ? e(date('d.m', strtotime($events[0]['due_date']))) : '—') . "</div></div></div>";
     if (feature_enabled($subscription, 'smart_reminders')) {
         echo "<div class=\"card\"><h3>Напоминания</h3>";
         if ($reminders) {
@@ -847,7 +853,7 @@ if ($page === 'calendar') {
         }
         echo "</div>";
     }
-    echo "<div class=\"card\" id=\"add-event\"><form method=\"post\" action=\"/api.php?action=add_calendar_event\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Тип</label><select name=\"event_type\"><option value=\"rent\">Аренда</option><option value=\"salary\">Зарплата</option><option value=\"tax\">Налоги</option><option value=\"payment\">Платеж</option><option value=\"custom\">Другое</option></select></div><div><label>Название</label><input name=\"title\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\"></div><div><label>Дата</label><input name=\"due_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form></div>";
+    echo "<div class=\"card\" id=\"add-event\"><h3>Добавить регулярный платеж</h3><form method=\"post\" action=\"/api.php?action=add_calendar_event\" class=\"grid grid-4\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><div><label>Тип</label><select name=\"event_type\"><option value=\"rent\">Аренда</option><option value=\"salary\">Зарплата</option><option value=\"tax\">Налоги</option><option value=\"payment\">Платеж</option><option value=\"custom\">Другое</option></select></div><div><label>Название</label><input name=\"title\" required></div><div><label>Сумма</label><input name=\"amount\" type=\"number\" step=\"0.01\"></div><div><label>Дата</label><input name=\"due_date\" type=\"date\" required></div><div><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></div></form><div class=\"muted\">События сохраняются и напомнят вам заранее.</div></div>";
     echo "<div class=\"card\"><h3>Ближайшие события</h3>";
     if ($events) {
         echo "<table class=\"table\"><thead><tr><th>Дата</th><th>Тип</th><th>Название</th><th>Сумма</th></tr></thead><tbody>";
