@@ -156,6 +156,27 @@ if ($action === 'add_purchase') {
     redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id, 'Закупка добавлена.');
 }
 
+if ($action === 'update_ingredient') {
+    $user = require_auth();
+    $subscription = require_subscription($user);
+    $cafe_id = (int)$_POST['cafe_id'];
+    $ingredient_id = (int)$_POST['ingredient_id'];
+    $name = trim($_POST['name']);
+    $unit = trim($_POST['unit']);
+    $cost = (float)$_POST['cost_per_unit'];
+    $stock = (float)$_POST['stock_qty'];
+    $stmt = db()->prepare('SELECT id FROM ingredients WHERE id = ? AND cafe_id = ?');
+    $stmt->execute([$ingredient_id, $cafe_id]);
+    if (!$stmt->fetch()) {
+        redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id, 'Ингредиент не найден', 'warning');
+    }
+    $stmt = db()->prepare('UPDATE ingredients SET name = ?, unit = ?, cost_per_unit = ?, stock_qty = ? WHERE id = ?');
+    $stmt->execute([$name, $unit, $cost, $stock, $ingredient_id]);
+    $stmt = db()->prepare('INSERT INTO ingredient_cost_history (ingredient_id, cost_per_unit) VALUES (?, ?)');
+    $stmt->execute([$ingredient_id, $cost]);
+    redirect_with_message('/index.php?page=ingredients&cafe_id=' . $cafe_id . '&ingredient_id=' . $ingredient_id, 'Ингредиент обновлён.');
+}
+
 if ($action === 'add_recipe') {
     $user = require_auth();
     $subscription = require_subscription($user);

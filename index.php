@@ -468,15 +468,29 @@ if ($page === 'ingredients') {
     $ingredients->execute([$cafe_id]);
     $ingredients = $ingredients->fetchAll();
     app_nav('ingredients', $cafe_id);
-    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Ингредиенты — " . e($cafe['name']) . "</h2><div class=\"muted\">Средневзвешенная себестоимость</div></div><a class=\"btn btn-primary\" href=\"#add-ingredient\">Добавить ингредиент</a></div>";
-    echo "<div class=\"card\" id=\"add-ingredient\"><form method=\"post\" action=\"/api.php?action=add_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Название</label><input name=\"name\" required><label>Ед.изм.</label><input name=\"unit\" placeholder=\"г, мл, шт\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" required><label>Начальный остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"0\"><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
-
-    echo "<div class=\"grid grid-2\">";
+    $selected_ingredient_id = (int)($_GET['ingredient_id'] ?? ($ingredients[0]['id'] ?? 0));
+    $selected_ingredient = null;
     foreach ($ingredients as $item) {
-        echo "<div class=\"card\"><h3>" . e($item['name']) . "</h3><div class=\"muted\">" . e($item['unit']) . " · Остаток: " . e($item['stock_qty']) . "</div><div class=\"price\">" . format_money($item['cost_per_unit']) . " ₽ / " . e($item['unit']) . "</div>";
+        if ((int)$item['id'] === $selected_ingredient_id) {
+            $selected_ingredient = $item;
+            break;
+        }
+    }
+    echo "<main class=\"container section\"><div class=\"page-head\"><div><h2>Ингредиенты — " . e($cafe['name']) . "</h2><div class=\"muted\">Средневзвешенная себестоимость и остатки</div></div><a class=\"btn btn-primary\" href=\"#add-ingredient\">Добавить ингредиент</a></div>";
+    if ($ingredients) {
+        echo "<div class=\"card\"><form method=\"get\" class=\"inline-form\"><input type=\"hidden\" name=\"page\" value=\"ingredients\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Выберите ингредиент</label><select name=\"ingredient_id\">";
+        foreach ($ingredients as $item) {
+            $selected = ((int)$item['id'] === $selected_ingredient_id) ? 'selected' : '';
+            echo "<option value=\"" . e((string)$item['id']) . "\" {$selected}>" . e($item['name']) . "</option>";
+        }
+        echo "</select><button class=\"btn btn-ghost\" type=\"submit\">Открыть</button></form></div>";
+    }
+    echo "<div class=\"card\" id=\"add-ingredient\"><h3>Добавить новый ингредиент</h3><form method=\"post\" action=\"/api.php?action=add_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><label>Название</label><input name=\"name\" required><label>Ед.изм.</label><input name=\"unit\" placeholder=\"г, мл, шт\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" required><label>Начальный остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"0\"><button class=\"btn btn-primary\" type=\"submit\">Добавить</button></form></div>";
+    if ($selected_ingredient) {
+        echo "<div class=\"grid grid-2\"><div class=\"card\"><h3>Редактировать ингредиент</h3><form method=\"post\" action=\"/api.php?action=update_ingredient\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"ingredient_id\" value=\"" . e((string)$selected_ingredient['id']) . "\"><label>Название</label><input name=\"name\" value=\"" . e($selected_ingredient['name']) . "\" required><label>Ед.изм.</label><input name=\"unit\" value=\"" . e($selected_ingredient['unit']) . "\" required><label>Себестоимость за ед.</label><input name=\"cost_per_unit\" type=\"number\" step=\"0.01\" value=\"" . e($selected_ingredient['cost_per_unit']) . "\" required><label>Остаток</label><input name=\"stock_qty\" type=\"number\" step=\"0.001\" value=\"" . e($selected_ingredient['stock_qty']) . "\"><button class=\"btn btn-primary\" type=\"submit\">Сохранить</button></form>";
         if (feature_enabled($subscription, 'unit_economics')) {
             $history_stmt = db()->prepare('SELECT cost_per_unit, recorded_at FROM ingredient_cost_history WHERE ingredient_id = ? ORDER BY recorded_at DESC LIMIT 3');
-            $history_stmt->execute([$item['id']]);
+            $history_stmt->execute([$selected_ingredient['id']]);
             $history = $history_stmt->fetchAll();
             if ($history) {
                 echo "<div class=\"muted\">История себестоимости:</div><ul class=\"data-list\">";
@@ -486,12 +500,11 @@ if ($page === 'ingredients') {
                 echo "</ul>";
             }
         }
-        echo "<form method=\"post\" action=\"/api.php?action=add_purchase\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"ingredient_id\" value=\"" . e((string)$item['id']) . "\"><label>Закупка (кол-во)</label><input name=\"qty\" type=\"number\" step=\"0.001\" required><label>Сумма закупки</label><input name=\"price_total\" type=\"number\" step=\"0.01\" required><label>Дата</label><input name=\"purchased_at\" type=\"date\" required><button class=\"btn btn-ghost\" type=\"submit\">Добавить закупку</button></form></div>";
-    }
-    if (!$ingredients) {
+        echo "</div>";
+        echo "<div class=\"card\"><h3>Закупка</h3><form method=\"post\" action=\"/api.php?action=add_purchase\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"hidden\" name=\"ingredient_id\" value=\"" . e((string)$selected_ingredient['id']) . "\"><label>Кол-во</label><input name=\"qty\" type=\"number\" step=\"0.001\" required><label>Сумма закупки</label><input name=\"price_total\" type=\"number\" step=\"0.01\" required><label>Дата</label><input name=\"purchased_at\" type=\"date\" required><button class=\"btn btn-ghost\" type=\"submit\">Добавить закупку</button></form></div></div>";
+    } else {
         echo "<div class=\"empty-state\">Добавьте ингредиенты, чтобы рассчитывать себестоимость напитков.</div>";
     }
-    echo "</div>";
     echo "<div class=\"card\"><h3>CSV импорт закупок</h3><form method=\"post\" action=\"/api.php?action=import_purchases\" enctype=\"multipart/form-data\" class=\"inline-form\"><input type=\"hidden\" name=\"cafe_id\" value=\"" . e((string)$cafe_id) . "\"><input type=\"file\" name=\"csv_file\" accept=\".csv\" required><button class=\"btn btn-ghost\" type=\"submit\">Загрузить CSV</button></form><div class=\"muted\">Формат: ингредиент;кол-во;сумма;дата (YYYY-MM-DD)</div></div>";
     echo "</main>";
     page_footer();
