@@ -1,0 +1,35 @@
+<svg width="520" height="680" viewBox="0 0 520 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="520" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9F0FF"/>
+      <stop offset="1" stop-color="#F7F9FF"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FAD9C4"/>
+      <stop offset="1" stop-color="#F6C5AA"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#6B4B3E"/>
+      <stop offset="1" stop-color="#3D2A22"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E7ECF6"/>
+    </linearGradient>
+  </defs>
+  <rect width="520" height="680" rx="60" fill="url(#bg)"/>
+  <circle cx="350" cy="160" r="110" fill="#FFFFFF"/>
+  <circle cx="120" cy="220" r="60" fill="#FFFFFF"/>
+  <ellipse cx="300" cy="620" rx="160" ry="40" fill="#E3EAF8"/>
+  <path d="M190 210C190 120 240 70 320 70C400 70 450 130 450 220C450 310 400 340 320 340C240 340 190 300 190 210Z" fill="url(#hair)"/>
+  <ellipse cx="320" cy="250" rx="78" ry="92" fill="url(#skin)"/>
+  <path d="M252 255C265 265 285 272 320 272C355 272 375 265 388 255" stroke="#C58F78" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="290" cy="230" r="6" fill="#3D2A22"/>
+  <circle cx="350" cy="230" r="6" fill="#3D2A22"/>
+  <path d="M230 350C260 330 380 330 410 350L430 520C360 560 290 560 210 520L230 350Z" fill="url(#blazer)"/>
+  <path d="M260 360L320 460L380 360" stroke="#D6DDEA" stroke-width="10" stroke-linecap="round"/>
+  <rect x="245" y="440" width="150" height="120" rx="16" fill="#DDE3F0" stroke="#C9D2E3" stroke-width="4"/>
+  <rect x="265" y="460" width="110" height="14" rx="7" fill="#B7C4DD"/>
+  <rect x="265" y="490" width="90" height="10" rx="5" fill="#C2CDE1"/>
+  <rect x="265" y="515" width="70" height="10" rx="5" fill="#C2CDE1"/>
+</svg>
