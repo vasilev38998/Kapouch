@@ -440,13 +440,16 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('cost_alert_threshold', CAST(0.15 AS JSON));
 
 INSERT INTO users (id, email, password_hash, role, created_at) VALUES
-(1, 'demo@kapouch.ru', '$2y$12$wYyuUvHIE0H2HwLgYwIXt.vhXr.IWLrkDIJ.qvoTh8L6Mvd37EE1.', 'owner', NOW());
+(1, 'demo@kapouch.ru', '$2y$12$xaN04.pjGc4l3FJTNjID7.D48Ko5N7TrUQQ.qoBj3YJficf7EHMhi', 'owner', NOW());
 
 INSERT INTO cafes (id, user_id, name, city, created_at) VALUES
 (1, 1, 'Kapouch Demo', 'Москва', NOW());
 
 INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status) VALUES
 (1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'active');
+
+INSERT INTO company_profiles (user_id, inn, company_name, short_name, ogrn, kpp, address, ceo_name, status, entity_type) VALUES
+(1, '7707083893', 'ООО "Kapouch Demo"', 'ООО "Kapouch"', '1027700132195', '770701001', 'г. Москва, ул. Тверская, 10', 'Иванова Мария Сергеевна', 'Действующая', 'company');
 
 INSERT INTO ingredients (id, cafe_id, name, unit, cost_per_unit, stock_qty, created_at) VALUES
 (1, 1, 'Кофейное зерно', 'г', 1.80, 8000, NOW()),
@@ -472,6 +475,14 @@ INSERT INTO ingredients (id, cafe_id, name, unit, cost_per_unit, stock_qty, crea
 (21, 1, 'Лимон', 'г', 0.15, 1500, NOW()),
 (22, 1, 'Мята', 'г', 0.25, 800, NOW()),
 (23, 1, 'Шоколад', 'г', 1.10, 1200, NOW());
+
+INSERT INTO ingredient_cost_history (ingredient_id, cost_per_unit, recorded_at) VALUES
+(1, 1.65, DATE_SUB(NOW(), INTERVAL 40 DAY)),
+(1, 1.80, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+(2, 0.10, DATE_SUB(NOW(), INTERVAL 20 DAY)),
+(2, 0.12, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(17, 0.40, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+(17, 0.45, DATE_SUB(NOW(), INTERVAL 2 DAY));
 
 INSERT INTO recipes (id, cafe_id, name, price, created_at) VALUES
 (1, 1, 'Эспрессо', 190.00, NOW()),
@@ -502,6 +513,88 @@ INSERT INTO recipe_items (recipe_id, ingredient_id, qty) VALUES
 (5, 20, 250),
 (5, 5, 1),
 (5, 11, 1);
+
+INSERT INTO purchases (cafe_id, ingredient_id, qty, price_total, purchased_at) VALUES
+(1, 1, 2500, 4500, DATE_SUB(CURDATE(), INTERVAL 20 DAY)),
+(1, 2, 10000, 1200, DATE_SUB(CURDATE(), INTERVAL 15 DAY)),
+(1, 4, 300, 1050, DATE_SUB(CURDATE(), INTERVAL 14 DAY)),
+(1, 17, 1500, 675, DATE_SUB(CURDATE(), INTERVAL 8 DAY)),
+(1, 18, 1500, 675, DATE_SUB(CURDATE(), INTERVAL 8 DAY)),
+(1, 20, 5000, 100, DATE_SUB(CURDATE(), INTERVAL 5 DAY));
+
+INSERT INTO expenses (cafe_id, category, comment, amount, expense_date) VALUES
+(1, 'Аренда', 'Аренда за месяц', 85000, DATE_SUB(CURDATE(), INTERVAL 25 DAY)),
+(1, 'Зарплата', 'ФОТ за период', 120000, DATE_SUB(CURDATE(), INTERVAL 20 DAY)),
+(1, 'Коммунальные', 'Электричество', 12000, DATE_SUB(CURDATE(), INTERVAL 18 DAY)),
+(1, 'Маркетинг', 'Таргетированная реклама', 18000, DATE_SUB(CURDATE(), INTERVAL 12 DAY)),
+(1, 'Логистика', 'Доставка расходников', 4500, DATE_SUB(CURDATE(), INTERVAL 10 DAY)),
+(1, 'Оборудование', 'Сервис кофемашины', 9500, DATE_SUB(CURDATE(), INTERVAL 6 DAY)),
+(1, 'Прочее', 'Музыка и подписки', 3000, DATE_SUB(CURDATE(), INTERVAL 2 DAY));
+
+INSERT INTO expense_budgets (cafe_id, category, monthly_limit) VALUES
+(1, 'Аренда', 90000),
+(1, 'Зарплата', 130000),
+(1, 'Коммунальные', 15000),
+(1, 'Маркетинг', 20000),
+(1, 'Логистика', 8000),
+(1, 'Оборудование', 12000),
+(1, 'Прочее', 6000);
+
+INSERT INTO sales (cafe_id, recipe_id, qty, price_total, cost_total, sold_at) VALUES
+(1, 1, 20, 3800, 720, DATE_SUB(CURDATE(), INTERVAL 14 DAY)),
+(1, 2, 35, 9100, 2920, DATE_SUB(CURDATE(), INTERVAL 12 DAY)),
+(1, 3, 28, 8120, 2600, DATE_SUB(CURDATE(), INTERVAL 11 DAY)),
+(1, 4, 18, 4320, 1680, DATE_SUB(CURDATE(), INTERVAL 9 DAY)),
+(1, 5, 22, 3960, 1320, DATE_SUB(CURDATE(), INTERVAL 8 DAY)),
+(1, 2, 40, 10400, 3360, DATE_SUB(CURDATE(), INTERVAL 6 DAY)),
+(1, 3, 30, 8700, 2800, DATE_SUB(CURDATE(), INTERVAL 4 DAY)),
+(1, 1, 26, 4940, 936, DATE_SUB(CURDATE(), INTERVAL 3 DAY)),
+(1, 4, 20, 4800, 1860, DATE_SUB(CURDATE(), INTERVAL 2 DAY)),
+(1, 5, 28, 5040, 1680, DATE_SUB(CURDATE(), INTERVAL 1 DAY));
+
+INSERT INTO daily_checklist (cafe_id, item, checklist_date, is_done) VALUES
+(1, 'Проверить остатки ингредиентов', CURDATE(), 1),
+(1, 'Снять выручку и сверить кассу', CURDATE(), 0),
+(1, 'Проверить сменный персонал', CURDATE(), 1),
+(1, 'Подготовить витрину', DATE_SUB(CURDATE(), INTERVAL 1 DAY), 1),
+(1, 'Проверить график поставок', DATE_SUB(CURDATE(), INTERVAL 1 DAY), 1);
+
+INSERT INTO checklist_templates (cafe_id, item) VALUES
+(1, 'Проверить чистоту зала'),
+(1, 'Обновить промо-материалы'),
+(1, 'Снять показатели KPI дня'),
+(1, 'Проверить наличие сменных расходников');
+
+INSERT INTO writeoffs (cafe_id, ingredient_id, qty, reason, writeoff_date) VALUES
+(1, 2, 1200, 'Срок годности', DATE_SUB(CURDATE(), INTERVAL 7 DAY)),
+(1, 1, 300, 'Порча', DATE_SUB(CURDATE(), INTERVAL 5 DAY)),
+(1, 15, 150, 'Списание тестовой партии', DATE_SUB(CURDATE(), INTERVAL 2 DAY));
+
+INSERT INTO kpi_targets (cafe_id, target_margin, target_profit, target_revenue) VALUES
+(1, 62.5, 180000, 520000);
+
+INSERT INTO cash_shifts (cafe_id, shift_date, opening_cash, closing_cash, cash_sales, difference) VALUES
+(1, DATE_SUB(CURDATE(), INTERVAL 7 DAY), 5000, 18200, 13500, -300),
+(1, DATE_SUB(CURDATE(), INTERVAL 6 DAY), 4500, 17600, 13200, -100),
+(1, DATE_SUB(CURDATE(), INTERVAL 5 DAY), 4800, 19150, 14400, -50),
+(1, DATE_SUB(CURDATE(), INTERVAL 4 DAY), 5200, 20500, 15000, 300),
+(1, DATE_SUB(CURDATE(), INTERVAL 3 DAY), 5300, 21200, 15600, 300),
+(1, DATE_SUB(CURDATE(), INTERVAL 2 DAY), 5100, 19800, 14000, 700);
+
+INSERT INTO plan_fact_targets (cafe_id, period_start, period_end, target_revenue, target_profit) VALUES
+(1, DATE_SUB(CURDATE(), INTERVAL 30 DAY), CURDATE(), 520000, 180000);
+
+INSERT INTO staff (id, cafe_id, name, role, hourly_rate) VALUES
+(1, 1, 'Анна Петрова', 'Бариста', 280),
+(2, 1, 'Олег Смирнов', 'Бариста', 300),
+(3, 1, 'Мария Лукина', 'Управляющий', 420);
+
+INSERT INTO staff_shifts (staff_id, shift_date, hours) VALUES
+(1, DATE_SUB(CURDATE(), INTERVAL 6 DAY), 8),
+(1, DATE_SUB(CURDATE(), INTERVAL 4 DAY), 7.5),
+(2, DATE_SUB(CURDATE(), INTERVAL 6 DAY), 8),
+(2, DATE_SUB(CURDATE(), INTERVAL 3 DAY), 8),
+(3, DATE_SUB(CURDATE(), INTERVAL 5 DAY), 6);
 
 INSERT INTO calendar_events (cafe_id, event_type, title, amount, due_date) VALUES
 (1, 'rent', 'Аренда помещения', 85000, DATE_ADD(CURDATE(), INTERVAL 5 DAY)),
