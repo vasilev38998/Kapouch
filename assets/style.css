@@ -1225,3 +1225,119 @@ label {
         grid-template-columns: 1fr;
     }
 }
+
+@media (max-width: 860px) {
+    .nav {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .nav-links,
+    .nav-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .hero-plate {
+        min-height: 420px;
+    }
+
+    .hero-person {
+        position: relative;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .hero-dashboard {
+        position: relative;
+        left: auto;
+        top: auto;
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-shell {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: relative;
+        top: 0;
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #e6e9ef;
+    }
+
+    .app-content {
+        padding: 16px 16px 32px;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .topbar-tabs {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+
+    .topbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .calendar-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .hero-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .hero-plate {
+        padding: 18px;
+        min-height: 360px;
+    }
+
+    .hero-dashboard-card {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .hero-person img {
+        max-width: 260px;
+    }
+
+    .nav-links,
+    .nav-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 520px) {
+    .calendar-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar-user {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .hero h1 {
+        font-size: 30px;
+    }
+
+    .hero p {
+        font-size: 16px;
+    }
+}
